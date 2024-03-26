@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -e
+
+dir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
+
+"$dir/../../zig" c++ -target x86_64-windows "$@"
+
+# The below code was for trying to get things compiling with xwin, but it just wasn't working correctly
+# "$dir/../../zig" c++ -target x86_64-windows-msvc -isystem "/home/tcroc/.cache/cargo-xwin/xwin/sdk/include/um" -I"/home/tcroc/.cache/cargo-xwin/xwin/sdk/include/shared" -isystem "/home/tcroc/.cache/cargo-xwin/xwin/crt/include" -isystem "/home/tcroc/.cache/cargo-xwin/xwin/sdk/include/ucrt" "$@"
