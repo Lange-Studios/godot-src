@@ -1,0 +1,31 @@
+[gd_scene load_steps=3 format=3 uid="uid://bqw7gs5n0w5bf"]
+
+[ext_resource type="Script" path="res://hello.gd" id="1_mihnm"]
+[ext_resource type="Script" path="res://Hello.cs" id="2_owiiw"]
+
+[node name="Main" type="Node2D"]
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+offset_right = 432.0
+offset_bottom = 88.0
+
+[node name="GDScriptHello" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "gdscript should say hello here"
+script = ExtResource("1_mihnm")
+
+[node name="CSharpHello" type="Label" parent="VBoxContainer"]
+auto_translate_mode = 1
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "c# should say hello here"
+script = ExtResource("2_owiiw")
+
+[node name="RustHello" type="Label" parent="VBoxContainer"]
+auto_translate_mode = 1
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "rust should say hello here"
+
+[node name="HelloWorld" type="HelloWorld" parent="VBoxContainer/RustHello"]

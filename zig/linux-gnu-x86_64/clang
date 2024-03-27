@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -e
+
+dir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
+
+"$dir/../../zig" cc -target x86_64-linux-gnu "$@"
