@@ -9,12 +9,12 @@ How are we going to accomplish this?
 
 Reduce system dependencies.
 
-I don't think we will be able to get this to 0, but I think we can get pretty darn close.  Currently the cross compilation logic is being driven by bash scripts.  This was done before I started getting more familiar with zig.  You will see that the bash scripts are using ``zig cc``, ``zig c++``, and other ``zig [compiler-tool]`` throughout the scripts to comile different platforms.  I want to explore porting this over to zig's build system and eliminate our need for bash.
+I don't think we will be able to get this to 0, but I think we can get pretty close.  Currently the cross compilation logic is being driven by bash scripts.  This was done before I started getting more familiar with zig.  You will see that the bash scripts are using ``zig cc``, ``zig c++``, and other ``zig [compiler-tool]`` throughout the scripts to comile different platforms.  I want to explore porting this over to zig's build system and eliminate our need for bash.
 
 
 Progress has already been made by eliminating the llvm and mingw dependencies via zig's drop in compiler :)
 
-However, with these goals listed, this project does currently still requires a significant amount of system dependencies.  So lets get started with those:
+However, with these goals listed, this project currently still requires a significant amount of system dependencies.  So lets get started with those:
 
 ## Godot
 
@@ -31,6 +31,8 @@ Fortunately for linux users, we have distro specific oneliners here: https://doc
 ## Rust
 
 1. To build the rust example in the project, you can install rust from here: https://www.rust-lang.org/tools/install
+2. To build to windows, install cargo-xwin: https://github.com/rust-cross/cargo-xwin
+    - I'd like to use zig for this, but I was having trouble targeting msvc with rust and zig.
 
 ## Zig
 
@@ -78,10 +80,22 @@ Then you should see the outputs in [examples/gitignore/hello_world/bin](examples
 
 Currently only building from linux is supported with windows and mac coming very soon.  Here is an initial draft of the platform plan chart:
 
-| Host OS  | Linux | Windows Desktop | Mac | Android | iOS | Steam Deck | Switch | XBox | PlayStation |
-|----------|-------|-----------------|-----|---------|-----|------------|--------|------|-------------|
-| Linux    | ✅    | ✅              | ❌  | ❌      | ❌  | ❌         | ❌     | ❌   | ❌         |
-| Windows  | ❌    | ❌              | ❌  | ❌      | ❌  | ❌         | ❌     | ❌   | ❌         |
-| Max      | ❌    | ❌              | ❌  | ❌      | ❌  | ❌         | ❌     | ❌   | ❌         |
+Column = host platform
+Row = target platform
 
-The goal is to make as many of these as green as possible.  And if there are licenses or NDAs we have to follow, those may simply stay ❌.
+✅ = supported
+❌ = not supported
+
+|                 | Linux | Windows Desktop | Mac |
+|-----------------|-------|-----------------|-----|
+| Linux           | ✅    | ✅              | ❌  |
+| Windows Desktop | ❌    | ❌              | ❌  |
+| Mac             | ❌    | ❌              | ❌  |
+| Android         | ❌    | ❌              | ❌  |
+| iOS             | ❌    | ❌              | ❌  |
+| Steam Deck      | ❌    | ❌              | ❌  |
+| Switch          | ❌    | ❌              | ❌  |
+| XBox            | ❌    | ❌              | ❌  |
+| PlayStation     | ❌    | ❌              | ❌  |
+
+The goal is to make as many of these as green as possible.  And if there are licenses or NDAs we have to follow, we should make sure to follow those as well as still try to support those platforms.
