@@ -6,6 +6,7 @@ prev_pwd="$PWD"
 dir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
 root_dir="$dir/.."
 zig_dir="$root_dir/zig"
+eval "$("$zig_dir/zig-env.sh")"
 "$zig_dir/zig-install.sh"
 
 # Get the godot env vars.
@@ -55,7 +56,7 @@ fi
 
 if [[ "$skip_cs" != "true" ]]
 then
-    "$root_dir/other/scripts/clean-dotnet.sh"
+    "$root_dir/godot/godot-clean-dotnet.sh"
     # The directory where godot will be built out to
     mkdir -p "$GODOT_DIR/bin/"
     # This folder needs to exist in order for the nuget packages to be output here
@@ -63,7 +64,7 @@ then
 
     # We assume the godot editor is already built
     # TODO: Allow customizing these flags
-    "$root_dir/godot.sh" \
+    "$dir/godot.sh" \
         --headless \
         --generate-mono-glue \
         "$GODOT_DIR/modules/mono/glue" \
@@ -91,3 +92,5 @@ scons \
     CXX="$cxx"
 
 cd "$prev_pwd"
+
+echo "Template build success!  Find your template at: $(realpath "$GODOT_DIR/bin")"

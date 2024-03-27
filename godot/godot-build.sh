@@ -5,6 +5,7 @@ set -e
 prev_pwd="$PWD"
 dir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
 root_dir="$dir/.."
+eval "$("$dir/zig/zig-env.sh")"
 "$root_dir/zig/zig-install.sh"
 
 # Get the godot env vars.
@@ -22,7 +23,6 @@ cxx="$root_dir/zig/zig c++"
 if [[ "$OSTYPE" == "linux-gnu"* ]]
 then
     platform="linuxbsd"
-    godot_exe="$GODOT_DIR/bin/godot.linuxbsd.editor.double.x86_64.mono"
 elif [[ "$OSTYPE" == "darwin"* ]]
 then
         echo "ERROR: MacOS not supported yet!"
@@ -30,7 +30,6 @@ then
 elif [[ "$OSTYPE" == "cygwin" || "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]
 then
     platform="windows"
-    godot_exe="$GODOT_DIR/bin/godot.windows.editor.double.x86_64.mono.exe"
 else
     echo "ERROR: OS $OSTYPE is unsupported"
     exit 1
@@ -57,7 +56,7 @@ then
     mkdir -p "$GODOT_DIR/bin/"
     # This folder needs to exist in order for the nuget packages to be output here
     mkdir -p "$GODOT_DIR/bin/GodotSharp/Tools/nupkgs"
-    "$godot_exe" --headless --generate-mono-glue "$GODOT_DIR/modules/mono/glue" --precision=double
+    "$dir/godot.sh" --headless --generate-mono-glue "$GODOT_DIR/modules/mono/glue" --precision=double
     "$GODOT_DIR/modules/mono/build_scripts/build_assemblies.py" \
         --godot-output-dir="$GODOT_DIR/bin" \
         --precision=double \

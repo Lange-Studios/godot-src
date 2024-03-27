@@ -4,10 +4,11 @@ set -e
 
 prev_pwd="$PWD"
 dir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
-root_dir="$dir/../.."
+root_dir="$dir/.."
 zig_dir="$root_dir/zig"
 gitignore_dir="$root_dir/gitignore"
 vcredist_dir="$gitignore_dir/vcredist"
+eval "$("$zig_dir/zig-env.sh")"
 "$zig_dir/zig-install.sh"
 export MINGW_PREFIX="$zig_dir/mingw"
 
@@ -42,6 +43,14 @@ do
             "$dir/godot-build-windows-template.sh" --help
             exit 0
             ;;
+        --project)
+            shift
+            project="$1"
+            ;;
+        --output)
+            shift
+            output="$1"
+            ;;
         *)
             ;;
     esac
@@ -57,21 +66,6 @@ fi
 if [[ "$skip_template" != "true" ]]
 then
     "$dir/godot-build-windows-template.sh" "${args[@]}"
-fi
-
-if [[ "$OSTYPE" == "linux-gnu"* ]]
-then
-    export GODOT4_BIN="$GODOT_DIR/bin/godot.linuxbsd.editor.double.x86_64.mono"
-elif [[ "$OSTYPE" == "darwin"* ]]
-then
-        echo "ERROR: MacOS not supported yet!"
-        exit 1
-elif [[ "$OSTYPE" == "cygwin" || "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]
-then
-    export GODOT4_BIN="$GODOT_DIR\bin\godot.windows.editor.double.x86_64.mono.exe"
-else
-    echo "ERROR: OS $OSTYPE is unsupported"
-    exit 1
 fi
 
 # Microsoft talks about how they intend for vc_redist to be used here: 
@@ -98,27 +92,21 @@ then
     fi
 fi
 
-export CARGO_TARGET_DIR="$root_dir/blockyball-godot/src/rust/lib/target"
-# This is for bindgen's clang-sys dependency. 
-# Docs here: https://github.com/KyleMayes/clang-sys?tab=readme-ov-file#environment-variables
-export CLANG_PATH="$root_dir/zig/llvm/clang"
-export RUST_LOG=bindgen::builder=debug
-# For some reason targeting windows-gnu results in godot not being able to load the rust dll at runtime
-# PATH="$MINGW_PREFIX/bin-rust:$PATH" cargo build --target=x86_64-pc-windows-gnu -p blockyball-godot-rust $cargo_target_arg
-# Here we use xwin to target msvc.  But I'm wondering if we can use zig and spoof the link.exe as well.
-cargo xwin build --target=x86_64-pc-windows-msvc -p blockyball-godot-rust $cargo_target_arg
-cd "$root_dir/blockyball-godot"
-target_dir="$root_dir/blockyball-godot-target/windows/x86_64/$target"
-rm -rf "$target_dir"
-mkdir -p "$target_dir"
-"$root_dir/godot.sh" --headless --export-$target "Windows Desktop" "$target_dir/blockyballot.exe"
-cp "$root_dir/gitignore/dxc/dxc_2024_03_22/bin/x64/dxil.dll" "$target_dir/dxil.dll"
-cp "$vcredist_dir/vc_redist.x64.exe" "$target_dir/vc_redist.x64.exe"
+cd "$project"
+output_dir="$(dirname "$output")"
+output_exe="$(basename "$output")"
+rm -rf "$output_dir"
+mkdir -p "$output_dir"
+"$dir/godot.sh" --headless --export-$target "Windows Desktop" "$output"
+cp "$root_dir/gitignore/dxc/dxc_2024_03_22/bin/x64/dxil.dll" "$output_dir/dxil.dll"
+cp "$vcredist_dir/vc_redist.x64.exe" "$output_dir/vc_redist.x64.exe"
 # Current solution is to open a bat file, but I'd actually like to bundle together in a single exe.
 # This way a cmd window doesn't open first.
-cat > $target_dir/blockyballot.bat<< EOF
+cat > $output.bat<< EOF
 @echo off
 %~dp0\vc_redist.x64.exe /install /quiet /norestart
-start %~dp0\blockyballot.exe %*
+start %~dp0\\$output_exe %*
 EOF
 cd "$prev_pwd"
+echo "Export Success!  Find your build at: $(realpath "$output_dir")"
+echo "NOTE: Due to windows requiring vc_redist to be installed, executing the .bat file will ensure its installed before starting the application.  Hopefully this can be bundled in the exe in the future."

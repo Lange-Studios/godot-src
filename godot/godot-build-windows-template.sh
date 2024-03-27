@@ -5,14 +5,16 @@ set -e
 prev_pwd="$PWD"
 dir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
 root_dir="$dir/.."
-zig_dir="$root_dir/other/zig"
+zig_dir="$root_dir/zig"
 gitignore_dir="$root_dir/gitignore"
 dxc_version_date="$(cat "$root_dir/config/dxc-version.txt")"
 # dxc does versioning in format: version number / date
 IFS='/' read -ra dxc_version_date_arr <<< "$dxc_version_date"
 dxc_version="${dxc_version_date_arr[0]}"
 dxc_date="${dxc_version_date_arr[1]}"
-godot_nir_version="$(cat "$root_dir/config/godot-nir-version.txt")"
+# TODO: Add versioning for godot nir. Maybe lock commit hashes
+# godot_nir_version="$(cat "$root_dir/config/godot-nir-version.txt")"
+eval "$("$zig_dir/zig-env.sh")"
 "$zig_dir/zig-install.sh"
 
 # Get the godot env vars.
@@ -69,14 +71,14 @@ fi
 
 if [[ "$skip_cs" != "true" ]]
 then
-    "$root_dir/other/scripts/clean-dotnet.sh"
+    "$dir/godot-clean-dotnet.sh"
     # The directory where godot will be built out to
     mkdir -p "$GODOT_DIR/bin/"
     # This folder needs to exist in order for the nuget packages to be output here
     mkdir -p "$GODOT_DIR/bin/GodotSharp/Tools/nupkgs"
 
     # We assume the godot editor is already built
-    "$root_dir/godot.sh" \
+    "$dir/godot.sh" \
         --headless \
         --generate-mono-glue \
         "$GODOT_DIR/modules/mono/glue" \
@@ -88,35 +90,19 @@ then
         --godot-platform=windows
 fi
 
-# godot_nir_dir="$gitignore_dir/godot_nir"
+godot_nir_dir="$gitignore_dir/godot-nir-static"
 
-# if ! test -f "$godot_nir_dir/godot-nir-$godot_nir_version/bin/libNIR.windows.x86_32.a"
-# then
-#     rm -rf "$godot_nir_dir"
-#     mkdir -p "$godot_nir_dir"
-#     godot_nir_zip="godot-nir-$godot_nir_version.zip"
-#     godot_nir_url="https://github.com/godotengine/godot-nir-static/releases/download/$godot_nir_version/$godot_nir_zip"
-
-#     if wget --version
-#     then
-#         wget "$godot_nir_url" -O "$godot_nir_dir/$godot_nir_zip"
-#         unzip "$godot_nir_dir/$godot_nir_zip" -d "$godot_nir_dir/godot-nir-$godot_nir_version"
-#     elif curl --version
-#     then
-#         curl "$godot_nir_url" -o "$godot_nir_dir/$godot_nir_zip"
-#     else
-#         echo "ERROR: wget or curl must be installed"
-#         exit 1
-#     fi
-# fi
+if ! test -f "$godot_nir_dir/SConstruct" || ! test -f "$godot_nir_dir/mesa/VERSION"
+then
+    rm -rf "$godot_nir_dir"
+    mkdir -p "$godot_nir_dir"
+    git clone --recurse-submodules --depth 1 https://github.com/godotengine/godot-nir-static.git "$godot_nir_dir"
+fi
 
 prev_dir="$PWD"
-cd "$GODOT_DIR-nir-static"
+cd "$godot_nir_dir"
 
-if ! make --version
-then
-    pip3 install mako
-fi
+pip3 install mako
 
 ./update_mesa.sh
 
@@ -159,7 +145,7 @@ scons \
     d3d12=yes \
     vulkan=no \
     dxc_path="$dxc_dir/$dxc_date" \
-    mesa_libs="$GODOT_DIR-nir-static" \
+    mesa_libs="$root_dir/gitignore/godot-nir-static" \
     target=template_$target \
     debug_symbols=$debug_symbols \
     module_mono_enabled=yes \
@@ -170,3 +156,5 @@ scons \
     CXX="$cxx"
 
 cd "$prev_pwd"
+
+echo "Template build success!  Find your template at: $(realpath $GODOT_DIR/bin)"

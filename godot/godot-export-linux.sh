@@ -25,13 +25,23 @@ do
             echo "==================================================="
             echo "Export Help Message"
             echo ""
-            echo "--help          - print a helpful message"
-            echo "--release       - exports using the release template"
-            echo "--debug         - exports using the debug template"
-            echo "--skip-template - skips building the export template"
+            echo "--help          - Print a helpful message"
+            echo "--release       - Exports using the release template"
+            echo "--debug         - Exports using the debug template"
+            echo "--skip-template - Skips building the export template"
+            echo "--project       - The path to the godot project to export"
+            echo "--output        - The path where the executable should be exported too.  Including the name of the executable."
             echo "==================================================="
             "$dir/godot-build-linux-template.sh" --help
             exit 0
+            ;;
+        --project)
+            shift
+            project="$1"
+            ;;
+        --output)
+            shift
+            output="$1"
             ;;
         *)
             ;;
@@ -50,10 +60,10 @@ then
     "$dir/godot-build-linux-template.sh" "${args[@]}"
 fi
 
-"$root_dir/cargo-build-$target.sh"
-cd "$root_dir/blockyball-godot"
-target_dir="$root_dir/blockyball-godot-target/linux/x86_64/$target"
-rm -rf "$target_dir"
-mkdir -p "$target_dir"
-"$root_dir/godot.sh" --headless --export-$target "Linux" "$target_dir/blockyballot.x86_64"
+cd "$project"
+output_dir="$(dirname "$output")"
+rm -rf "$output_dir"
+mkdir -p "$output_dir"
+"$dir/godot.sh" --headless --export-$target "Linux" "$output"
 cd "$prev_pwd"
+echo "Export Success!  Find your build at: $(realpath "$output_dir")"
