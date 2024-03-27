@@ -98,4 +98,4 @@ Row = target platform
 | XBox            | ❌    | ❌              | ❌  |
 | PlayStation     | ❌    | ❌              | ❌  |
 
-The goal is to make as many of these as green as possible.  And if there are licenses or NDAs we have to follow, we should make sure to follow those as well as still try to support those platforms.
+The goal is to make as many of these as green as possible while maintaining compliance with licensing and NDAs
