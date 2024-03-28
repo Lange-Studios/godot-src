@@ -47,7 +47,9 @@ done
 
 if [[ "$target" == "release" ]]
 then
-    lto_arg="lto=full"
+    # zig or llvm appears to have a bug that is causing lto to break godot builds.
+    lto_arg=""
+    # lto_arg="lto=full"
     debug_symbols="no"
 elif [[ "$target" == "debug" ]]
 then

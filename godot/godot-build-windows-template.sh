@@ -57,7 +57,7 @@ done
 
 if [[ "$target" == "release" ]]
 then
-    # lto results in compiler errors on windows
+    # zig or llvm appears to have a bug that is causing lto to break godot builds.
     # lto_arg="lto=full"
     debug_symbols="no"
 elif [[ "$target" == "debug" ]]

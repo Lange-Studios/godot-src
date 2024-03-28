@@ -88,8 +88,8 @@ Row = target platform
 
 |                 | Linux Host | Windows Host | Mac Host |
 |-----------------|------------|--------------|----------|
-| Linux           | ✅         | ✅           | ❌       |
-| Windows Desktop | ❌         | ❌           | ❌       |
+| Linux           | ✅         | ❌           | ❌       |
+| Windows Desktop | ✅         | ❌           | ❌       |
 | Mac             | ❌         | ❌           | ❌       |
 | Android         | ❌         | ❌           | ❌       |
 | iOS             | ❌         | ❌           | ❌       |
