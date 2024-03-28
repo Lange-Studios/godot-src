@@ -5,8 +5,9 @@ set -e
 dir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
 
 root_dir="$dir/.."
-version="$(cat "$root_dir/config/zig-version.txt")"
-zig_parent_dir="$root_dir/gitignore/zig"
+
+config_dir="${GODOT_CROSS_CONFIG_DIR:="$root_dir/config"}"
+version="${ZIG_VERSION:="$(cat "$config_dir/zig-version.txt")"}"
 
 if [[ "$OSTYPE" == "linux-gnu"* ]]
 then
@@ -28,12 +29,16 @@ else
 fi
 
 # Only assign if unset. Allow for users to override.  Otherwise, default to the gitignore folder.
-ZIG_DIR="${ZIG_DIR:="$zig_parent_dir/zig-$platform-$version"}"
+ZIG_DIR="${ZIG_DIR:="$root_dir/gitignore/zig/zig-$platform-$version"}"
 # This is required in order for godot to be built with scons.  Scons operates with its own env and if
 # these aren't set, zig will fail to compile godot.  Comment out the below 2 lines to see :)
-ZIG_GLOBAL_CACHE_DIR="${ZIG_GLOBAL_CACHE_DIR:="$zig_parent_dir/cache"}"
-ZIG_LOCAL_CACHE_DIR="${ZIG_LOCAL_CACHE_DIR:="$zig_parent_dir/cache"}"
+ZIG_GLOBAL_CACHE_DIR="${ZIG_GLOBAL_CACHE_DIR:="$root_dir/gitignore/zig/cache"}"
+ZIG_LOCAL_CACHE_DIR="${ZIG_LOCAL_CACHE_DIR:="$root_dir/gitignore/zig/cache"}"
 
-echo "export ZIG_DIR=\"$ZIG_DIR\""
-echo "export ZIG_GLOBAL_CACHE_DIR=\"$ZIG_GLOBAL_CACHE_DIR\""
-echo "export ZIG_LOCAL_CACHE_DIR=\"ZIG_LOCAL_CACHE_DIR\""
+echo "$(cat <<EOF
+export ZIG_DIR="$ZIG_DIR"
+export ZIG_GLOBAL_CACHE_DIR="$ZIG_GLOBAL_CACHE_DIR"
+export ZIG_LOCAL_CACHE_DIR="$ZIG_LOCAL_CACHE_DIR"
+export ZIG_VERSION="$version"
+EOF
+)"

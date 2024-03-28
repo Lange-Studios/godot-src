@@ -86,16 +86,16 @@ Row = target platform
 ✅ = supported
 ❌ = not supported
 
-|                 | Linux | Windows Desktop | Mac |
-|-----------------|-------|-----------------|-----|
-| Linux           | ✅    | ✅              | ❌  |
-| Windows Desktop | ❌    | ❌              | ❌  |
-| Mac             | ❌    | ❌              | ❌  |
-| Android         | ❌    | ❌              | ❌  |
-| iOS             | ❌    | ❌              | ❌  |
-| Steam Deck      | ❌    | ❌              | ❌  |
-| Switch          | ❌    | ❌              | ❌  |
-| XBox            | ❌    | ❌              | ❌  |
-| PlayStation     | ❌    | ❌              | ❌  |
+|                 | Linux Host | Windows Host | Mac Host |
+|-----------------|------------|--------------|----------|
+| Linux           | ✅         | ✅           | ❌       |
+| Windows Desktop | ❌         | ❌           | ❌       |
+| Mac             | ❌         | ❌           | ❌       |
+| Android         | ❌         | ❌           | ❌       |
+| iOS             | ❌         | ❌           | ❌       |
+| Steam Deck      | ❌         | ❌           | ❌       |
+| Switch          | ❌         | ❌           | ❌       |
+| XBox            | ❌         | ❌           | ❌       |
+| PlayStation     | ❌         | ❌           | ❌       |
 
 The goal is to make as many of these as green as possible while maintaining compliance with licensing and NDAs

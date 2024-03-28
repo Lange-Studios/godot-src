@@ -10,10 +10,11 @@ eval "$("$dir/zig-env.sh")"
 dir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
 
 root_dir="$dir/.."
-version="${ZIG_VERSION:="$(cat "$root_dir/config/zig-version.txt")"}"
+config_dir="${GODOT_CROSS_CONFIG_DIR:="$root_dir/config"}"
+version="${ZIG_VERSION:="$(cat "$config_dir/zig-version.txt")"}"
 zip="zig-$version.xz"
 
-if [[ "$IS_CUSTOM_ZIG" == "true" ]]
+if [[ "$GODOT_CROSS_AUTO_INSTALL_ZIG" == "false" ]]
 then
     exit 0
 fi

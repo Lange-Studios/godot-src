@@ -9,14 +9,14 @@ eval "$("$dir/../../godot/godot-env.sh")"
 # The GODOT4_BIN env var is used by gdext to generate bindings between gdext rust and godot
 if [[ "$OSTYPE" == "linux-gnu"* ]]
 then
-    export GODOT4_BIN="$GODOT_DIR/bin/godot.linuxbsd.editor.double.x86_64.mono"
+    export GODOT4_BIN="$GODOT_CROSS_GODOT_DIR/bin/godot.linuxbsd.editor.double.x86_64.mono"
 elif [[ "$OSTYPE" == "darwin"* ]]
 then
         echo "ERROR: MacOS not supported yet!"
         exit 1
 elif [[ "$OSTYPE" == "cygwin" || "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]
 then
-    export GODOT4_BIN="$$GODOT_DIR/bin/godot.windows.editor.double.x86_64.mono.exe"
+    export GODOT4_BIN="$GODOT_CROSS_GODOT_DIR/bin/godot.windows.editor.double.x86_64.mono.exe"
 else
     echo "ERROR: OS $OSTYPE is unsupported"
     exit 1
