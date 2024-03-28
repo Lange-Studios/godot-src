@@ -73,30 +73,33 @@ if [[ "$skip_cs" != "true" ]]
 then
     "$dir/godot-clean-dotnet.sh"
     # The directory where godot will be built out to
-    mkdir -p "$GODOT_DIR/bin/"
+    mkdir -p "$GODOT_CROSS_GODOT_DIR/bin/"
     # This folder needs to exist in order for the nuget packages to be output here
-    mkdir -p "$GODOT_DIR/bin/GodotSharp/Tools/nupkgs"
+    mkdir -p "$GODOT_CROSS_GODOT_DIR/bin/GodotSharp/Tools/nupkgs"
 
     # We assume the godot editor is already built
     "$dir/godot.sh" \
         --headless \
         --generate-mono-glue \
-        "$GODOT_DIR/modules/mono/glue" \
+        "$GODOT_CROSS_GODOT_DIR/modules/mono/glue" \
         --precision=double
 
-    "$GODOT_DIR/modules/mono/build_scripts/build_assemblies.py" \
-        --godot-output-dir="$GODOT_DIR/bin" \
+    "$GODOT_CROSS_GODOT_DIR/modules/mono/build_scripts/build_assemblies.py" \
+        --godot-output-dir="$GODOT_CROSS_GODOT_DIR/bin" \
         --precision=double \
         --godot-platform=windows
 fi
 
 godot_nir_dir="$gitignore_dir/godot-nir-static"
 
-if ! test -f "$godot_nir_dir/SConstruct" || ! test -f "$godot_nir_dir/mesa/VERSION"
+if [[ "$GODOT_CROSS_AUTO_INSTALL_GODOT_NIR" != "false" ]]
 then
-    rm -rf "$godot_nir_dir"
-    mkdir -p "$godot_nir_dir"
-    git clone --recurse-submodules --depth 1 https://github.com/godotengine/godot-nir-static.git "$godot_nir_dir"
+    if ! test -f "$godot_nir_dir/SConstruct" || ! test -f "$godot_nir_dir/mesa/VERSION"
+    then
+        rm -rf "$godot_nir_dir"
+        mkdir -p "$godot_nir_dir"
+        git clone --recurse-submodules --depth 1 https://github.com/godotengine/godot-nir-static.git "$godot_nir_dir"
+    fi  
 fi
 
 prev_dir="$PWD"
@@ -136,7 +139,7 @@ then
     fi
 fi
 
-cd "$GODOT_DIR"
+cd "$GODOT_CROSS_GODOT_DIR"
 
 scons \
     "$clean_arg" \
@@ -151,10 +154,11 @@ scons \
     module_mono_enabled=yes \
     compiledb=no \
     precision=double \
-    import_env_vars=ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR \
+    import_env_vars="$GODOT_CROSS_IMPORT_ENV_VARS" \
+    custom_modules="$GODOT_CROSS_CUSTOM_MODULES" \
     CC="$cc" \
     CXX="$cxx"
 
 cd "$prev_pwd"
 
-echo "Template build success!  Find your template at: $(realpath $GODOT_DIR/bin)"
+echo "Template build success!  Find your template at: $(realpath $GODOT_CROSS_GODOT_DIR/bin)"

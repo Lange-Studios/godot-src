@@ -24,6 +24,10 @@ do
             ;;
         --debug) target=debug
             ;;
+        --custom-modules)
+            shift
+            custom_modules_arg="custom_modules="$1""
+            ;;
         --help)
             echo "==================================================="
             echo "Template Help Message"
@@ -58,26 +62,26 @@ if [[ "$skip_cs" != "true" ]]
 then
     "$root_dir/godot/godot-clean-dotnet.sh"
     # The directory where godot will be built out to
-    mkdir -p "$GODOT_DIR/bin/"
+    mkdir -p "$GODOT_CROSS_GODOT_DIR/bin/"
     # This folder needs to exist in order for the nuget packages to be output here
-    mkdir -p "$GODOT_DIR/bin/GodotSharp/Tools/nupkgs"
+    mkdir -p "$GODOT_CROSS_GODOT_DIR/bin/GodotSharp/Tools/nupkgs"
 
     # We assume the godot editor is already built
     # TODO: Allow customizing these flags
     "$dir/godot.sh" \
         --headless \
         --generate-mono-glue \
-        "$GODOT_DIR/modules/mono/glue" \
+        "$GODOT_CROSS_GODOT_DIR/modules/mono/glue" \
         --precision=double
 
     # TODO: Allow customizing these flags
-    "$GODOT_DIR/modules/mono/build_scripts/build_assemblies.py" \
-        --godot-output-dir="$GODOT_DIR/bin" \
+    "$GODOT_CROSS_GODOT_DIR/modules/mono/build_scripts/build_assemblies.py" \
+        --godot-output-dir="$GODOT_CROSS_GODOT_DIR/bin" \
         --precision=double \
         --godot-platform=linuxbsd
 fi
 
-cd "$GODOT_DIR"
+cd "$GODOT_CROSS_GODOT_DIR"
 
 scons \
     "$lto_arg" \
@@ -87,10 +91,11 @@ scons \
     module_mono_enabled=yes \
     compiledb=no \
     precision=double \
-    import_env_vars=ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR \
+    import_env_vars="$GODOT_CROSS_IMPORT_ENV_VARS" \
+    custom_modules="$GODOT_CROSS_CUSTOM_MODULES" \
     CC="$cc" \
     CXX="$cxx"
 
 cd "$prev_pwd"
 
-echo "Template build success!  Find your template at: $(realpath "$GODOT_DIR/bin")"
+echo "Template build success!  Find your template at: $(realpath "$GODOT_CROSS_GODOT_DIR/bin")"

@@ -15,14 +15,17 @@ do
         --target=x86_64-pc-windows-gnu )
             echo "remapping '--target=x86_64-pc-windows-gnu' to '--target=x86_64-windows-gnu'"
             args+=("--target=x86_64-windows-gnu")
+            zig_target_arg="-target x86_64-windows-gnu"
             ;;
         --target=x86_64-pc-windows-msvc )
             echo "remapping '--target=x86_64-pc-windows-msvc' to '--target=x86_64-windows-msvc'"
             args+=("--target=x86_64-windows-msvc")
+            zig_target_arg="-target x86_64-windows"
             ;;
         --target=x86_64-pc-linux-gnu )
             echo "remapping '--target=x86_64-pc-linux-gnu' to '--target=x86_64-linux-gnu'"
             args+=("--target=x86_64-linux-gnu")
+            zig_target_arg="-target x86_64-linux-gnu"
             ;;
         * )
             args+=("$1")
@@ -31,4 +34,4 @@ do
     shift
 done
 
-"$dir/../zig" cc -target x86_64-windows "${args[@]}"
+"$dir/../zig" cc $zig_target_arg "${args[@]}"
