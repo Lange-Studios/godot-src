@@ -48,9 +48,9 @@ export def "nudep decompress" [
     out_dir: string # The directory to extract the files to
 ] {
     if ($file_path | str ends-with ".tar.xz") or ($file_path | str ends-with ".tar.gz") {
-        decompress tar $file_path $out_dir
+        nudep decompress tar $file_path $out_dir
     } else if ($file_path | str ends-with ".zip") {
-        decompress zip $file_path $out_dir
+        nudep decompress zip $file_path $out_dir
     } else {
         error make {
             msg: $"Failed to detect compression format for '($file_path)'. Must have a file extension of '.tar.xz', '.tar.gz' or '.zip'.  Otherwise call 'decompress tar' or 'decompress zip' explicitly",
