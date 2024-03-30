@@ -11,8 +11,6 @@
 
 set -e
 
-prev_pwd="$PWD"
-
 dir_to_clean="$1"
 cd "$dir_to_clean"
 echo "cleaning directory: $dir_to_clean"
@@ -46,5 +44,3 @@ echo "${files_to_remove[@]}"
 # rm -rf
 #
 rm -rf $(echo "${files_to_remove[@]}" | sed 's/!//g' | tr '\n' ' ')
-
-cd "$prev_pwd"
