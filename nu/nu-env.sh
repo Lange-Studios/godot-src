@@ -19,7 +19,7 @@ godot_cross_nu_version="${GODOT_CROSS_NU_VERSION:="$(cat "$godot_cross_config_di
 
 if [[ "$OSTYPE" == "linux-gnu"* ]]
 then
-    dir=nu-$GODOT_CROSS_NU_VERSION-$(arch)-unknown-linux-musl
+    version_dir=nu-$GODOT_CROSS_NU_VERSION-$(arch)-unknown-linux-musl
 elif [[ "$OSTYPE" == "darwin"* ]]
 then
     # TODO
@@ -36,7 +36,7 @@ else
     exit 1
 fi
 
-godot_cross_nu_dir="${GODOT_CROSS_NU_DIR:="$dir/../gitignore/nu/$dir"}"
+godot_cross_nu_dir="${GODOT_CROSS_NU_DIR:="$dir/../gitignore/nu/$version_dir"}"
 
 echo "$(cat <<EOF
 export GODOT_CROSS_NU_DIR="$godot_cross_nu_dir"

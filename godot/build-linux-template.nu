@@ -1,3 +1,4 @@
+# Builds the godot template for linux
 def "main build-linux-template" [
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
     --skip-cs-glue # Skips generating or rebuilding the csharp glue
@@ -33,17 +34,17 @@ def "main build-linux-template" [
     
         # We assume the godot editor is already built
         # TODO: Allow customizing these flags
-        "$dir/godot.sh" \
-            --headless \
-            --generate-mono-glue \
-            "$GODOT_CROSS_GODOT_DIR/modules/mono/glue" \
-            --precision=double
+        # "$dir/godot.sh" \
+        #     --headless \
+        #     --generate-mono-glue \
+        #     "$GODOT_CROSS_GODOT_DIR/modules/mono/glue" \
+        #     --precision=double
     
-        # TODO: Allow customizing these flags
-        "$GODOT_CROSS_GODOT_DIR/modules/mono/build_scripts/build_assemblies.py" \
-            --godot-output-dir="$GODOT_CROSS_GODOT_DIR/bin" \
-            --precision=double \
-            --godot-platform=linuxbsd
+        # # TODO: Allow customizing these flags
+        # "$GODOT_CROSS_GODOT_DIR/modules/mono/build_scripts/build_assemblies.py" \
+        #     --godot-output-dir="$GODOT_CROSS_GODOT_DIR/bin" \
+        #     --precision=double \
+        #     --godot-platform=linuxbsd
     }
     
     # if [[ "$skip_cs" != "true" ]]
