@@ -1,4 +1,4 @@
-def config [] {
+export def "main godot config" [] {
     use ../nudep/core.nu *
     use utils.nu
     let godot_dir = ($env.GODOT_CROSS_GODOT_DIR? | default $"($env.GODOT_CROSS_DIR)/($DEP_DIR)/gitignore");
@@ -28,7 +28,7 @@ export def --wrapped "main godot run" [
     use ../nudep/core.nu *
     use ../nudep/platform_constants.nu *
     
-    let config = config;
+    let config = main godot config;
 
     let is_valid = try {
         run-external --redirect-combine $config.godot_bin "--version" | complete | get exit_code | $in == 0
@@ -53,65 +53,9 @@ export def --wrapped "main godot run" [
 
 # Build the godot editor for the host platform
 export def "main godot build editor" [
-    --skip-cs
+    --skip-cs-glue
 ] {
-    use ../nudep
-    use ../nudep/platform_constants.nu *
-    use utils.nu
-
-    let config = config;
-
-    if $config.auto_install_godot {
-        if not ($"($config.godot_dir)/LICENSE.txt" | path exists) {
-            git clone --depth 1 https://github.com/godotengine/godot.git $config.godot_dir
-        }
-    }
-    
-    # require zig to be installed
-    nudep zig run version
-
-    let cc = $"(nudep zig bin) cc"
-    let cxx = $"(nudep zig bin) c++"
-    
-    let platform = utils godot-platform $nu.os-info.name
-    
-    cd $config.godot_dir
-    
-    # Set the global and local cache directories since scons requires it
-    let zig_config = nudep zig config
-    $env.ZIG_GLOBAL_CACHE_DIR = $zig_config.local_cache_dir
-    $env.ZIG_LOCAL_CACHE_DIR = $zig_config.global_cache_dir
-
-    # TODO: Allow users to pass custom scons commands
-    (run-external scons 
-        $"platform=($platform)" 
-        "debug_symbols=yes"
-        "module_mono_enabled=yes"
-        "compiledb=yes"
-        "precision=double"
-        $"import_env_vars=ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR($config.import_env_vars)"
-        $"custom_modules=($config.custom_modules)"
-        $"CC=($cc)"
-        $"CXX=($cxx)")
-
-    if not $skip_cs {
-        main godot clean dotnet
-        # The directory where godot will be built out to
-        mkdir $"($config.godot_dir)/bin"
-        # This folder needs to exist in order for the nuget packages to be output here
-        mkdir $"($config.godot_dir)/bin/GodotSharp/Tools/nupkgs"
-        (run-external 
-            $config.godot_bin 
-            "--headless" 
-            "--generate-mono-glue" 
-            $"($config.godot_dir)/modules/mono/glue" 
-            "--precision=double")
-        (run-external 
-            $"($config.godot_dir)/modules/mono/build_scripts/build_assemblies.py"
-            $"--godot-output-dir=($config.godot_dir)/bin"
-            "--precision=double"
-            $"--godot-platform=($platform)")
-    }
+    main godot build --release-mode "debug" --skip-cs-glue=$skip_cs_glue --compiledb --platform $nu.os-info.name
 }
 
 export def "main godot clean editor" [] {
@@ -119,7 +63,7 @@ export def "main godot clean editor" [] {
     use ../nudep/platform_constants.nu *
     use utils.nu
 
-    let config = config
+    let config = main godot config
 
     rm $config.godot_bin
     mkdir $"($config.godot_dir)/submodules/godot/bin/GodotSharp/Tools/nupkgs"
@@ -141,13 +85,13 @@ export def "main godot clean all" [] {
     use ../nudep/platform_constants.nu *
     use ../utils/utils.nu
 
-    let config = config
+    let config = main godot config
     utils git remove ignored $config.godot_dir ...($config.custom_modules | split row ",")
 }
 
 # Deletes godot and the directory where it is installed.  Only runs if auto_install_godot is true
 export def "main godot remove" [] {
-    let config = config;
+    let config = main godot config;
 
     if not $config.auto_install_godot {
         error make {
@@ -158,9 +102,21 @@ export def "main godot remove" [] {
     rm -r $config.godot_dir
 }
 
+# Build the godot editor for the host platform
+export def "main godot build template linux" [
+    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --skip-cs-glue # Skips generating or rebuilding the csharp glue
+] {
+    (main godot build 
+        --release-mode $release_mode 
+        --skip-cs-glue=$skip_cs_glue 
+        --target template 
+        --platform linux)
+}
+
 export def "main godot clean dotnet" [] {
     use ../utils/utils.nu
-    let config = config
+    let config = main godot config
     rm -rf $"($config.godot_dir)/bin/GodotSharp"
     utils git remove ignored $"($config.godot_dir)/modules/mono/glue/GodotSharp"
     utils git remove ignored $"($config.godot_dir)/modules/mono/editor/Godot.NET.Sdk"
@@ -173,8 +129,86 @@ export def "main godot" [] {
 }
 
 # use --help to see commands and details
-export def "main godot build" [] {
+export def "main godot build" [
+    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --skip-cs-glue # Skips generating or rebuilding the csharp glue
+    --platform: string # the platform to build for
+    --compiledb, # Whether or not to compile the databse for ides
+    --target: string # specify a target such as template
+] {
+    use utils.nu godot-platform
+    use ../utils/utils.nu validate_arg
+    use ../nudep/platform_constants.nu *
+    use ../nudep
+    validate_arg $release_mode "--release-mode" ((metadata $release_mode).span) "release" "debug"
 
+    let config = main godot config;
+
+    if $config.auto_install_godot {
+        if not ($"($config.godot_dir)/LICENSE.txt" | path exists) {
+            git clone --depth 1 https://github.com/godotengine/godot.git $config.godot_dir
+        }
+    }
+    
+    # require zig to be installed
+    nudep zig run version
+
+    let cc = $"(nudep zig bin) cc"
+    let cxx = $"(nudep zig bin) c++"
+
+    let platform = godot-platform $platform
+    let debug_symbols = $release_mode == "debug"
+
+    let target_arg = match $target {
+        "template" => $"target=template_($release_mode)"
+        null => "",
+        _ => $"target=($target)"
+    }
+
+    # Set the global and local cache directories since scons requires it
+    let zig_config = nudep zig config
+    $env.ZIG_GLOBAL_CACHE_DIR = $zig_config.local_cache_dir
+    $env.ZIG_LOCAL_CACHE_DIR = $zig_config.global_cache_dir
+
+    let import_env_vars = match $config.import_env_vars {
+        null | "" => "ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR",
+        _ => $"ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR,($config.import_env_vars)"
+    }
+
+    cd $config.godot_dir
+
+    # NOTE: lto=full is breaking things for now so not passing it
+    # TODO: Allow users to pass custom scons commands
+    (run-external scons 
+        $"platform=($platform)" 
+        $"debug_symbols=($debug_symbols)"
+        $"($target_arg)"
+        "module_mono_enabled=yes"
+        $"compiledb=($compiledb)"
+        "precision=double"
+        $"import_env_vars=($import_env_vars)"
+        $"custom_modules=($config.custom_modules)"
+        $"CC=($cc)"
+        $"CXX=($cxx)")
+
+    if not $skip_cs_glue {
+        main godot clean dotnet
+        # The directory where godot will be built out to
+        mkdir $"($config.godot_dir)/bin"
+        # This folder needs to exist in order for the nuget packages to be output here
+        mkdir $"($config.godot_dir)/bin/GodotSharp/Tools/nupkgs"
+        (run-external 
+            $config.godot_bin 
+            "--headless" 
+            "--generate-mono-glue" 
+            $"($config.godot_dir)/modules/mono/glue" 
+            "--precision=double")
+        (run-external 
+            $"($config.godot_dir)/modules/mono/build_scripts/build_assemblies.py"
+            $"--godot-output-dir=($config.godot_dir)/bin"
+            "--precision=double"
+            $"--godot-platform=($platform)")
+    }
 }
 
 # use --help to see commands and details
