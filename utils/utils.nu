@@ -36,3 +36,33 @@ export def validate_arg [
         }
     }
 }
+
+# returns a list of gitignored folders and directories
+export def "git list ignored" [...dirs: string] {
+    $dirs | each { 
+        |dir| cd $dir | (run-external --redirect-combine git 
+            "status"
+            .
+            "--ignored"
+            "--short" |
+                complete |
+                get stdout |
+                str trim |
+                split row "\n" |
+                filter { |$el| $el | str starts-with "!!" } |
+                str substring 2..) | 
+                str trim | 
+                each { |$el| $env.PWD | path join $el }
+    } | flatten
+}
+
+# Removed all of the gitignored folders and directories found in the directories passed as arguments
+#
+# Returns the list of files and directories that were removed
+export def "git remove ignored" [...dirs: string] {
+    git list ignored ...$dirs | each { |dir_file| 
+        print $"removing: ($dir_file)"
+        rm -r $dir_file 
+    }
+    ()
+}

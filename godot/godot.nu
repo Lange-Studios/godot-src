@@ -47,17 +47,19 @@ export def --wrapped "main godot run" [
         }
     }
 
-    main godot build
+    main godot build editor
+    run-external $config.godot_bin ...$rest
 }
 
-export def "main godot build" [
+# Build the godot editor for the host platform
+export def "main godot build editor" [
     --skip-cs
 ] {
     use ../nudep
     use ../nudep/platform_constants.nu *
     use utils.nu
 
-    let config = config;    
+    let config = config;
 
     if $config.auto_install_godot {
         if not ($"($config.godot_dir)/LICENSE.txt" | path exists) {
@@ -93,7 +95,7 @@ export def "main godot build" [
         $"CXX=($cxx)")
 
     if not $skip_cs {
-        # "$dir/godot-clean-dotnet.sh"
+        main godot clean dotnet
         # The directory where godot will be built out to
         mkdir $"($config.godot_dir)/bin"
         # This folder needs to exist in order for the nuget packages to be output here
@@ -106,27 +108,75 @@ export def "main godot build" [
             "--precision=double")
         (run-external 
             $"($config.godot_dir)/modules/mono/build_scripts/build_assemblies.py"
-            $"--godot-output-dir="($config.godot_dir)/bin""
+            $"--godot-output-dir=($config.godot_dir)/bin"
             "--precision=double"
-            $"--godot-platform="($platform)"")
+            $"--godot-platform=($platform)")
     }
 }
 
-# Deletes zig and the directory where it is installed
-export def "main remove godot" [] {
+export def "main godot clean editor" [] {
+    use ../nudep
+    use ../nudep/platform_constants.nu *
+    use utils.nu
+
+    let config = config
+
+    rm $config.godot_bin
+    mkdir $"($config.godot_dir)/submodules/godot/bin/GodotSharp/Tools/nupkgs"
+    let platform = utils godot-platform $nu.os-info.name
+    cd $config.godot_dir
+    (run-external scons 
+        "--clean"
+        $"platform=($platform)"
+        "use_llvm=yes"
+        "linker=lld"
+        "debug_symbols=yes"
+        "module_mono_enabled=yes"
+        "compiledb=yes"
+        "precision=double")
+}
+
+export def "main godot clean all" [] {
+    use ../nudep
+    use ../nudep/platform_constants.nu *
+    use ../utils/utils.nu
+
+    let config = config
+    utils git remove ignored $config.godot_dir ...($config.custom_modules | split row ",")
+}
+
+# Deletes godot and the directory where it is installed.  Only runs if auto_install_godot is true
+export def "main godot remove" [] {
     let config = config;
 
     if not $config.auto_install_godot {
         error make {
-            label: "Godot not auto installed. Therefore not removing godot."
+            msg: "Godot not auto installed. Therefore not removing godot."
         }
-        return;
     }
 
     rm -r $config.godot_dir
 }
 
+export def "main godot clean dotnet" [] {
+    use ../utils/utils.nu
+    let config = config
+    rm -rf $"($config.godot_dir)/bin/GodotSharp"
+    utils git remove ignored $"($config.godot_dir)/modules/mono/glue/GodotSharp"
+    utils git remove ignored $"($config.godot_dir)/modules/mono/editor/Godot.NET.Sdk"
+    utils git remove ignored $"($config.godot_dir)/modules/mono/editor/GodotTools"
+}
+
 # use --help to see commands and details
 export def "main godot" [] {
 
+}
+
+# use --help to see commands and details
+export def "main godot build" [] {
+
+}
+
+# use --help to see commands and details
+export def "main godot clean" [] {
 }
