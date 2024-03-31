@@ -114,6 +114,20 @@ export def "main godot build template linux" [
         --platform linux)
 }
 
+# Build the godot editor for the host platform
+export def "main godot build template windows" [
+    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --skip-cs-glue # Skips generating or rebuilding the csharp glue
+] {
+    
+
+    (main godot build 
+        --release-mode $release_mode 
+        --skip-cs-glue=$skip_cs_glue 
+        --target template 
+        --platform windows)
+}
+
 export def "main godot clean dotnet" [] {
     use ../utils/utils.nu
     let config = main godot config
@@ -153,8 +167,24 @@ export def "main godot build" [
     # require zig to be installed
     nudep zig run version
 
-    let cc = $"(nudep zig bin) cc"
-    let cxx = $"(nudep zig bin) c++"
+    let cc_cxx = match $platform {
+        "windows" => { 
+            cc: $"(nudep zig bin) cc -target x86_64-windows", 
+            cxx: $"(nudep zig bin) c++ -target x86_64-windows" 
+        },
+        "linux" => { 
+            cc: $"(nudep zig bin) cc -target x86_64-linux-gnu", 
+            cxx: $"(nudep zig bin) c++ -target x86_64-linux-gnu" 
+        },
+        _ => { 
+            error make {
+                msg: $"unsupported platform: ($platform)"
+            }
+        }
+    }
+
+    let cc = $cc_cxx.cc
+    let cxx = $cc_cxx.cxx
 
     let platform = godot-platform $platform
     let debug_symbols = $release_mode == "debug"
@@ -177,10 +207,23 @@ export def "main godot build" [
 
     cd $config.godot_dir
 
+    let extra_scons_args = match $platform {
+        "windows" => {
+            [
+                "d3d12=yes",
+                "vulkan=no"
+                $"dxc_path=($env.GODOT_CROSS_DXC_PATH)",
+                $"mesa_libs=($env.GODOT_CROSS_NIR_PATH)"
+            ]
+        },
+        _ => []
+    }
+
     # NOTE: lto=full is breaking things for now so not passing it
     # TODO: Allow users to pass custom scons commands
     (run-external scons 
-        $"platform=($platform)" 
+        $"platform=($platform)"
+        ...$extra_scons_args
         $"debug_symbols=($debug_symbols)"
         $"($target_arg)"
         "module_mono_enabled=yes"
