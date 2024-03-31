@@ -21,7 +21,7 @@ def config [] {
     }
 }
 
-# Execute a zig command.  Will install zig if it doesn't exist.
+# Execute a godot command.  Will install zig if it doesn't exist.
 export def --wrapped "main godot run" [
     ...rest
 ] {
@@ -124,4 +124,9 @@ export def "main remove godot" [] {
     }
 
     rm -r $config.godot_dir
+}
+
+# use --help to see commands and details
+export def "main godot" [] {
+
 }
