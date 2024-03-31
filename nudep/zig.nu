@@ -1,21 +1,28 @@
 use core.nu *
 use platform_constants.nu *
 
-def zig_dir [] {
-    return $"($env.GODOT_CROSS_DIR)/($DEP_DIR)/zig"
+export def config [] {
+    let zig_dir = $"($env.GODOT_CROSS_DIR)/($DEP_DIR)/zig";
+
+    return {
+        zig_dir: $zig_dir
+        local_cache_dir: $"($zig_dir)/cache",
+        global_cache_dir: $"($zig_dir)/cache"
+    }
 }
 
 # Execute a zig command.  Will install zig if it doesn't exist.
-export def --wrapped main [
+export def --wrapped run [
     ...rest
 ] {
+    let config = config
     let version = "0.12.0-dev.3496+a2df84d0f"
-    let zig_dir = zig_dir;
+    let zig_dir = $config.zig_dir;
     let zig_version_dir = $"($zig_dir)/($version)"
-    let zig_bin = nudep path zig bin
+    let zig_bin = bin
 
-    $env.ZIG_GLOBAL_CACHE_DIR = $"($zig_dir)/cache"
-    $env.ZIG_LOCAL_CACHE_DIR = $"($zig_dir)/cache"
+    $env.ZIG_GLOBAL_CACHE_DIR = $config.local_cache_dir
+    $env.ZIG_LOCAL_CACHE_DIR = $config.global_cache_dir
 
     let is_valid = try {
         run-external --redirect-combine $zig_bin "version" | complete | get stdout | str trim | $in == $version
@@ -44,14 +51,14 @@ export def --wrapped main [
 }
 
 # returns the path to the zig binary
-export def "nudep path zig bin" [] {
-    let version = "0.12.0-dev.3496+a2df84d0f"
-    let zig_dir = zig_dir;
+export def bin [] {
+    let version = $env.GODOT_CROSS_ZIG_VERSION? | default "0.12.0-dev.3496+a2df84d0f"
+    let zig_dir = (config).zig_dir
     let zig_version_dir = $"($zig_dir)/($version)"
     return $"($zig_version_dir)/zig-($nu.os-info.name)-($nu.os-info.arch)-($version)/zig";
 }
 
 # Deletes zig and the directory where it is installed
-export def "nudep remove zig" [] {
+export def remove [] {
     rm -r (zig_dir)
 }

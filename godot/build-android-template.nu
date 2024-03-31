@@ -1,5 +1,5 @@
 # Builds the godot template for android
-def "main build-android-template" [
+def "main build android-template" [
   --skip-cs-glue # Skips generating the csharp glue code
   --release # Optimizes with release settings
   --debug # optimizes with debug settings

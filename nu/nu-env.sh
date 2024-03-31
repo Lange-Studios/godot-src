@@ -2,7 +2,7 @@
 
 dir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
 
-godot_cross_config_dir="${GODOT_CROSS_CONFIG_DIR:="$dir/../config"}"
+godot_cross_config_dir="${GODOT_CROSS_CONFIG_DIR:="$(realpath "$dir/../config")"}"
 
 if ! test -f "$godot_cross_config_dir/nu-version.txt"
 then
@@ -36,7 +36,7 @@ else
     exit 1
 fi
 
-godot_cross_nu_dir="${GODOT_CROSS_NU_DIR:="$dir/../gitignore/nu/$version_dir"}"
+godot_cross_nu_dir="${GODOT_CROSS_NU_DIR:="$(realpath "$dir/../gitignore/nu/$version_dir")"}"
 
 echo "$(cat <<EOF
 export GODOT_CROSS_NU_DIR="$godot_cross_nu_dir"

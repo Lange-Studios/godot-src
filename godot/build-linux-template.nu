@@ -1,5 +1,5 @@
 # Builds the godot template for linux
-def "main build-linux-template" [
+def "main build linux-template" [
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
     --skip-cs-glue # Skips generating or rebuilding the csharp glue
     --custom-modules: string # A csv seperated list of additional modules to include in the build

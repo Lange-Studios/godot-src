@@ -1,10 +1,19 @@
-$env.GODOT_CROSS_DIR = $env.FILE_PWD
+$env.GODOT_CROSS_DIR = $env.GODOT_CROSS_DIR? | $env.FILE_PWD
 
 source godot/build-android-template.nu
 source godot/build-linux-template.nu
 source zig/nu/zig.nu
+source godot/godot.nu
 
-# All of our subcommands are defined as build commands. Main is required for nu
-# to have an entrypoint.  Without main, it will not do anything.
+# use '--help' to see the platforms you can build for
+def "main build" [] {
+}
+
+# use --help to see the commands that can be run
 def main [] {
+}
+
+# prints the contents of $env visible to the root of godot-cross
+def "main env" [] {
+    print $env
 }
