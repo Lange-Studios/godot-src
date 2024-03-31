@@ -119,7 +119,35 @@ export def "main godot build template windows" [
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
     --skip-cs-glue # Skips generating or rebuilding the csharp glue
 ] {
-    
+    use ../nudep/core.nu *
+    use ../nudep
+
+    # require zig to be installed
+    nudep zig run version
+    let zig_bin_dir = ($"(nudep zig bin)/.." | path expand)
+
+    let godot_nir_dir = $env.GODOT_CROSS_GODOT_NIR_DIR
+
+    let prev_dir = $env.PWD
+    cd $godot_nir_dir
+
+    $env.MINGW_PREFIX = $"($env.GODOT_CROSS_DIR)/zig/mingw"
+
+    pip3 install mako
+
+    ./update_mesa.sh
+
+    $env.PATH = ($env.PATH | prepend $"($env.MINGW_PREFIX)/bin")
+    $env.PATH = ($env.PATH | prepend $zig_bin_dir) 
+
+    scons "platform=windows" "arch=x86_64" "use_llvm=yes"
+
+    cd $prev_dir
+
+    let dxc_dir = $"($env.GODOT_CROSS_DIR)/gitignore/dxc"
+
+    nudep http file $"https://github.com/microsoft/DirectXShaderCompiler/releases/download/($env.GODOT_CROSS_DXC_VERSION)/($env.GODOT_CROSS_DXC_DATE).zip" $"($dxc_dir)/($env.GODOT_CROSS_DXC_VERSION)/($env.GODOT_CROSS_DXC_DATE).zip"
+    nudep decompress $"($dxc_dir)/($env.GODOT_CROSS_DXC_VERSION)/($env.GODOT_CROSS_DXC_DATE).zip" $"($dxc_dir)/($env.GODOT_CROSS_DXC_VERSION)/dxc"
 
     (main godot build 
         --release-mode $release_mode 
@@ -212,8 +240,8 @@ export def "main godot build" [
             [
                 "d3d12=yes",
                 "vulkan=no"
-                $"dxc_path=($env.GODOT_CROSS_DXC_PATH)",
-                $"mesa_libs=($env.GODOT_CROSS_NIR_PATH)"
+                $"dxc_path=($env.GODOT_CROSS_DIR)/gitignore/dxc/($env.GODOT_CROSS_DXC_VERSION)/dxc",
+                $"mesa_libs=($env.GODOT_CROSS_GODOT_NIR_DIR)"
             ]
         },
         _ => []
