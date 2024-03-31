@@ -1,0 +1,118 @@
+def config [] {
+    use ../nudep/core.nu *
+    let godot_dir = ($env.GODOT_CROSS_GODOT_DIR | default $"($env.GODOT_CROSS_DIR)/($DEP_DIR)/gitignore");
+    let godot_platform = into_godot_platform $nu.os-info-name
+    let arch = $nu.os-info.arch
+
+    let extension = match $godot_platform {
+        "windows" => ".exe",
+        _ => ""
+    }
+
+    let godot_bin = $"($godot_dir)/bin/godot.($godot_platform).editor.double.($arch).mono($extension)"
+
+    return {
+        godot_dir: $godot_dir,
+        godot_bin: $godot_bin,
+        auto_install_godot: ($env.GODOT_CROSS_AUTO_INSTALL_GODOT | true),
+        import_env_vars: ($env.GODOT_CROSS_IMPORT_ENV_VARS | ""),
+        custom_modules: ($env.GODOT_CROSS_CUSTOM_MODULES | "")
+    }
+}
+
+# Execute a zig command.  Will install zig if it doesn't exist.
+export def --wrapped "main godot run" [
+    ...rest
+] {
+    use ../nudep/core.nu *
+    use ../nudep/platform_constants.nu *
+    
+    let config = config;
+
+    let is_valid = try {
+        run-external $config.godot_bin "--version" | complete | get exit_code | $in == 0
+    } catch {
+        false
+    }
+
+    if $is_valid {
+        run-external $config.godot_bin ...$rest
+        return
+    }
+
+    if $config.auto_install_godot {
+        if not ($"($config.godot_dir)/LICENSE.txt" | path exists) {
+            git clone --depth 1 https://github.com/godotengine/godot.git $config.godot_dir
+        }
+    }
+
+    main build
+}
+
+export def "main build" [
+    --skip-cs
+] {
+    use ../nudep zig *
+    use ../nudep/platform_constants.nu *
+    use utils.nu
+
+    let config = config;    
+
+    if $config.auto_install_godot {
+        if not ($"($config.godot_dir)/LICENSE.txt" | path exists) {
+            git clone --depth 1 https://github.com/godotengine/godot.git $config.godot_dir
+        }
+    }
+    
+    let cc = $"(nudep path zig bin) cc"
+    let cxx = $"(nudep path zig bin) c++"
+    
+    let platform = utils godot-platform $nu.os-info.name
+    
+    cd $config.godot_dir
+    
+    # TODO: Allow users to pass custom scons commands
+    (scons 
+        "platform=$"($platform)"" 
+        "debug_symbols=yes"
+        "module_mono_enabled=yes"
+        "compiledb=yes"
+        "precision=double"
+        "import_env_vars=$"($config.import_env_vars)""
+        "custom_modules=$"($config.custom_modules)""
+        "CC=$"($cc)""
+        "CXX=$"($cxx)"")
+
+    if not $skip_cs {
+        # "$dir/godot-clean-dotnet.sh"
+        # The directory where godot will be built out to
+        mkdir $"($config.godot_dir/bin)"
+        # This folder needs to exist in order for the nuget packages to be output here
+        mkdir $"($config.godot_dir)/bin/GodotSharp/Tools/nupkgs"
+        (run-external 
+            $config.godot_bin 
+            "--headless" 
+            "--generate-mono-glue" 
+            $"($config.godot_dir)/modules/mono/glue" 
+            "--precision=double")
+        (run-external 
+            $"($config.godot_dir)/modules/mono/build_scripts/build_assemblies.py"
+            $"--godot-output-dir="($config.godot_dir)/bin""
+            "--precision=double"
+            $"--godot-platform="($platform)"")
+    }
+}
+
+# Deletes zig and the directory where it is installed
+export def "main remove godot" [] {
+    let config = config;
+
+    if not $config.auto_install_godot {
+        error make {
+            label: "Godot not auto installed. Therefore not removing godot."
+        }
+        return;
+    }
+
+    rm -r $config.godot_dir
+}

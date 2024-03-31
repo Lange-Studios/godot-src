@@ -1,3 +1,13 @@
+# Returns the path to the native shell scripts that forward cli args to zig.
+# 
+# Example:
+# 
+# $env.CC = $"(utils zig path native-shell) cc
+# $env.CXX = $"(utils zig path native-shell) c++
+export def "zig path native-shell" [] {
+    $"($env.GODOT_CROSS_DIR)/zig/native-shell/($nu.os-info.name)/zig"
+}
+
 export def validate_arg [
     arg: any, # The arg to validate
     arg_name: string, # The name of the argument
