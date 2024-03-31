@@ -285,3 +285,55 @@ export def "main godot build" [
 # use --help to see commands and details
 export def "main godot clean" [] {
 }
+
+export def "main godot export" [
+    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --out-file: string
+    --platform: string
+] {
+    let out_dir = ($"($out_file)/.." | path expand)
+    rm -rf $out_dir
+    mkdir $out_dir
+    main godot run --headless $"--export-($release_mode)" $platform $out_file
+}
+
+export def "main godot export linux" [
+    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --skip-template
+    --skip-cs-glue # Skips generating or rebuilding the csharp glue
+    --out-file
+] {
+    if not $skip_template {
+        main godot build template linux --skip-cs-glue=$skip_cs_glue --release-mode=$release_mode
+    }
+
+    main godot export --release-mode=$release_mode --out-file="$out_file" --platform="Linux"
+}
+
+export def "main godot export windows" [
+    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --skip-template
+    --skip-cs-glue # Skips generating or rebuilding the csharp glue
+    --out-file
+] {
+    use ../nudep
+
+    if not $skip_template {
+        main godot build template windows --skip-cs-glue=$skip_cs_glue --release-mode=$release_mode
+    }
+
+    # Microsoft talks about how they intend for vc_redist to be used here: 
+    #   https://learn.microsoft.com/en-us/cpp/windows/deploying-visual-cpp-application-by-using-the-vcpp-redistributable-package?view=msvc-170
+    #   https://learn.microsoft.com/en-us/cpp/windows/determining-which-dlls-to-redistribute?view=msvc-170&source=recommendations
+    #   https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170
+    # And here's a helpful tutorial for using it without window popup prompts:
+    #   https://www.asawicki.info/news_1597_installing_visual_c_redistributable_package_from_command_line.html
+    let vc_redist_path = $"($env.GODOT_CROSS_DIR)/gitignore/vc_redist/vc_redist.x64.exe"
+    nudep http file https://aka.ms/vs/17/release/vc_redist.x64.exe $vc_redist_path
+
+    let dxil_path = $"($env.GODOT_CROSS_DIR)/gitignore/dxc/($env.GODOT_CROSS_DXC_VERSION)/dxc/dxil.dll"
+    main godot export --release-mode=$release_mode --out-file="$out_file" --platform="Windows Desktop"
+    let out_dir = ($"($out_file)/.." | path expand)
+    cp $vc_redist_path $out_dir
+    cp $dxil_path $out_dir
+}
