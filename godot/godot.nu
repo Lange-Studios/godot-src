@@ -30,24 +30,17 @@ export def --wrapped "main godot run" [
     
     let config = main godot config;
 
-    let is_valid = try {
-        run-external --redirect-combine $config.godot_bin "--version" | complete | get exit_code | $in == 0
-    } catch {
-        false
-    }
-
-    if $is_valid {
-        run-external $config.godot_bin ...$rest
-        return
-    }
-
     if $config.auto_install_godot {
         if not ($"($config.godot_dir)/LICENSE.txt" | path exists) {
             git clone --depth 1 https://github.com/godotengine/godot.git $config.godot_dir
         }
     }
 
-    main godot build editor
+    if not ($config.godot_bin | path exists) {
+        main godot build editor
+    }
+    
+    print $"Running godot command: ($config.godot_bin) ($rest | str join ' ')"
     run-external $config.godot_bin ...$rest
 }
 
@@ -287,36 +280,42 @@ export def "main godot clean" [] {
 }
 
 export def "main godot export" [
+    --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
     --out-file: string
     --platform: string
 ] {
+    use ../utils/utils.nu
+    utils validate_arg_exists $out_file "--out-file" ((metadata $out_file).span)
+
     let out_dir = ($"($out_file)/.." | path expand)
     rm -rf $out_dir
     mkdir $out_dir
-    main godot run --headless $"--export-($release_mode)" $platform $out_file
+    main godot run --headless --path $project $"--export-($release_mode)" $platform $out_file
 }
 
 export def "main godot export linux" [
+    --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
     --skip-cs-glue # Skips generating or rebuilding the csharp glue
-    --out-file
+    --out-file: string
 ] {
     if not $skip_template {
         main godot build template linux --skip-cs-glue=$skip_cs_glue --release-mode=$release_mode
     }
 
-    main godot export --release-mode=$release_mode --out-file="$out_file" --platform="Linux"
+    main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --platform="Linux"
 }
 
 export def "main godot export windows" [
+    --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
     --skip-cs-glue # Skips generating or rebuilding the csharp glue
-    --out-file
+    --out-file: string
 ] {
-    use ../nudep
+    use ../nudep/core.nu *
 
     if not $skip_template {
         main godot build template windows --skip-cs-glue=$skip_cs_glue --release-mode=$release_mode
@@ -331,9 +330,16 @@ export def "main godot export windows" [
     let vc_redist_path = $"($env.GODOT_CROSS_DIR)/gitignore/vc_redist/vc_redist.x64.exe"
     nudep http file https://aka.ms/vs/17/release/vc_redist.x64.exe $vc_redist_path
 
-    let dxil_path = $"($env.GODOT_CROSS_DIR)/gitignore/dxc/($env.GODOT_CROSS_DXC_VERSION)/dxc/dxil.dll"
-    main godot export --release-mode=$release_mode --out-file="$out_file" --platform="Windows Desktop"
+    let dxil_path = $"($env.GODOT_CROSS_DIR)/gitignore/dxc/($env.GODOT_CROSS_DXC_VERSION)/dxc/bin/x64/dxil.dll"
+    main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --platform="Windows Desktop"
     let out_dir = ($"($out_file)/.." | path expand)
     cp $vc_redist_path $out_dir
     cp $dxil_path $out_dir
+    let out_basename = ($out_file | path basename
+    )
+    # This is a temporary workaround until we figure out how to create an exe that installs dependencies silently before launching
+    $"@echo off
+    %~dp0\\vc_redist.x64.exe /install /quiet /norestart
+    start %~dp0\\($out_file | path basename) %" | 
+        save -f $"($out_dir)/start.bat"
 }

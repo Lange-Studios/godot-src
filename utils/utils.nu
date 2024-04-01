@@ -37,6 +37,22 @@ export def validate_arg [
     }
 }
 
+export def validate_arg_exists [
+    arg: any, # The arg to validate
+    arg_name: string, # The name of the argument
+    span: record # The span to make an error on if this argument is invalid
+] {
+    if $arg == null {
+        error make {
+            msg: $"Missing required argument '($arg_name)'.", 
+            label: {
+                text: $"Pass the required argument '($arg_name)'", 
+                span: $span 
+            } 
+        }
+    }
+}
+
 # returns a list of gitignored folders and directories
 export def "git list ignored" [...dirs: string] {
     $dirs | each { 
