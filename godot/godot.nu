@@ -98,11 +98,10 @@ export def "main godot remove" [] {
 # Build the godot editor for the host platform
 export def "main godot build template linux" [
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
-    --skip-cs-glue # Skips generating or rebuilding the csharp glue
 ] {
     (main godot build 
         --release-mode $release_mode 
-        --skip-cs-glue=$skip_cs_glue 
+        --skip-cs-glue
         --target template 
         --platform linux)
 }
@@ -110,7 +109,6 @@ export def "main godot build template linux" [
 # Build the godot editor for the host platform
 export def "main godot build template windows" [
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
-    --skip-cs-glue # Skips generating or rebuilding the csharp glue
 ] {
     use ../nudep/core.nu *
     use ../nudep
@@ -144,7 +142,7 @@ export def "main godot build template windows" [
 
     (main godot build 
         --release-mode $release_mode 
-        --skip-cs-glue=$skip_cs_glue 
+        --skip-cs-glue 
         --target template 
         --platform windows)
 }
@@ -152,7 +150,6 @@ export def "main godot build template windows" [
 # Build the godot editor for the host platform
 export def "main godot build template android" [
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
-    --skip-cs-glue # Skips generating or rebuilding the csharp glue
 ] {
     use ../nudep/core.nu *
 
@@ -211,28 +208,28 @@ export def "main godot build template android" [
 
     (main godot build 
         --release-mode $release_mode 
-        --skip-cs-glue=$skip_cs_glue 
+        --skip-cs-glue 
         --target template 
         --platform android
         --arch arm32)
 
     (main godot build 
         --release-mode $release_mode 
-        --skip-cs-glue=$skip_cs_glue 
+        --skip-cs-glue 
         --target template 
         --platform android
         --arch arm64)
 
     (main godot build 
         --release-mode $release_mode 
-        --skip-cs-glue=$skip_cs_glue 
+        --skip-cs-glue 
         --target template 
         --platform android
         --arch x86_32)
 
     (main godot build 
         --release-mode $release_mode 
-        --skip-cs-glue=$skip_cs_glue 
+        --skip-cs-glue 
         --target template 
         --platform android
         --arch x86_64
@@ -429,11 +426,10 @@ export def "main godot export linux" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
-    --skip-cs-glue # Skips generating or rebuilding the csharp glue
     --out-file: string
 ] {
     if not $skip_template {
-        main godot build template linux --skip-cs-glue=$skip_cs_glue --release-mode=$release_mode
+        main godot build template linux --release-mode=$release_mode
     }
 
     main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --platform="Linux"
@@ -449,7 +445,7 @@ export def "main godot export windows" [
     use ../nudep/core.nu *
 
     if not $skip_template {
-        main godot build template windows --skip-cs-glue=$skip_cs_glue --release-mode=$release_mode
+        main godot build template windows --release-mode=$release_mode
     }
 
     # Microsoft talks about how they intend for vc_redist to be used here: 
