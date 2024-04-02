@@ -273,9 +273,12 @@ export def "main godot build" [
             git clone --depth 1 https://github.com/godotengine/godot.git $config.godot_dir
         }
     }
-    
-    # require zig to be installed
-    nudep zig run version
+
+    mut scons_args = ([
+        "module_mono_enabled=yes",
+        "precision=double",
+        $"compiledb=($compiledb)"
+    ] | append $extra_scons_args)
 
     let zig_arch = match $arch {
         "arm64" => "aarch64"
@@ -286,42 +289,37 @@ export def "main godot build" [
         }
     }
 
-    let arch_arg = match $arch {
-        null => "",
-        _ => $"arch=($arch)"
+    if $arch != null {
+        $scons_args = ($scons_args | append [
+            $"arch=($arch)"
+        ])
     }
 
-    let cc_cxx = match $platform {
-        "windows" => { 
-            cc: $"(nudep zig bin) cc -target x86_64-windows", 
-            cxx: $"(nudep zig bin) c++ -target x86_64-windows" 
+    match $platform {
+        "windows" => {
+            # require zig to be installed
+            nudep zig run version
+            $scons_args = ($scons_args | append [
+                $"CC=(nudep zig bin) cc -target x86_64-windows"
+                $"CXX=(nudep zig bin) c++ -target x86_64-windows"
+                "d3d12=yes",
+                "vulkan=no"
+                $"dxc_path=($env.GODOT_CROSS_DIR)/gitignore/dxc/($env.GODOT_CROSS_DXC_VERSION)/dxc",
+                $"mesa_libs=($env.GODOT_CROSS_GODOT_NIR_DIR)"
+            ])
         },
-        "linux" => { 
-            cc: $"(nudep zig bin) cc -target x86_64-linux-gnu", 
-            cxx: $"(nudep zig bin) c++ -target x86_64-linux-gnu" 
+        "linux" => {
+            # require zig to be installed
+            nudep zig run version
+            $scons_args = ($scons_args | append [
+                $"CC=(nudep zig bin) cc -target x86_64-linux-gnu",
+                $"CXX=(nudep zig bin) c++ -target x86_64-linux-gnu"
+            ])
         },
         "android" => {
-            match $arch {
-                "arm32" => { 
-                    cc: $"(nudep zig bin) cc -target arm-linux-android", 
-                    cxx: $"(nudep zig bin) c++ -target arm-linux-android" 
-                },
-                "arm64" => { 
-                    cc: $"(nudep zig bin) cc -target aarch64-linux-android", 
-                    cxx: $"(nudep zig bin) c++ -target aarch64-linux-android" 
-                },
-                "x86_32" => { 
-                    cc: $"(nudep zig bin) cc -target x86-linux-android", 
-                    cxx: $"(nudep zig bin) c++ -target x86-linux-android" 
-                },
-                "x86_64" => { 
-                    cc: $"(nudep zig bin) cc -target x86_64-linux-android", 
-                    cxx: $"(nudep zig bin) c++ -target x86_64-linux-android" 
-                },
-                _ => {
-                    error make { msg: $"Invalid arch '($arch)' for android. Must be arm32, arm64, x86_32, x86_64." }
-                }
-            }
+            $scons_args = ($scons_args | append [
+                "vulkan=yes"
+            ])
         }
         _ => { 
             error make {
@@ -330,16 +328,22 @@ export def "main godot build" [
         }
     }
 
-    let cc = $cc_cxx.cc
-    let cxx = $cc_cxx.cxx
-
     let platform = godot-platform $platform
     let debug_symbols = $release_mode == "debug"
 
-    let target_arg = match $target {
-        "template" => $"target=template_($release_mode)"
-        null => "",
-        _ => $"target=($target)"
+    $scons_args = ($scons_args | append [
+        $"platform=($platform)",
+        $"debug_symbols=($release_mode == "debug")"
+    ])
+
+    match $target {
+        "template" => {
+            $scons_args = ($scons_args | append $"target=template_($release_mode)")
+        }
+        null => {},
+        _ => {
+            $scons_args = ($scons_args | append $"target=($target)")
+        }
     }
 
     # Set the global and local cache directories since scons requires it
@@ -347,41 +351,25 @@ export def "main godot build" [
     $env.ZIG_GLOBAL_CACHE_DIR = $zig_config.local_cache_dir
     $env.ZIG_LOCAL_CACHE_DIR = $zig_config.global_cache_dir
 
-    let import_env_vars = match $config.import_env_vars {
-        null | "" => "ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR",
-        _ => $"ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR,($config.import_env_vars)"
+    match $config.import_env_vars {
+        null | "" => { 
+            $scons_args = ($scons_args | append "import_env_vars=ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR")
+        },
+        _ => {
+            $scons_args = ($scons_args | append $"import_env_vars=ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR,($config.import_env_vars)")
+        }
+    }
+
+    if $config.custom_modules != null and $config.custom_modules != "" {
+        $scons_args = ($scons_args | append $"custom_modules=($config.custom_modules)")
     }
 
     cd $config.godot_dir
 
-    let platform_scons_args = match $platform {
-        "windows" => {
-            [
-                "d3d12=yes",
-                "vulkan=no"
-                $"dxc_path=($env.GODOT_CROSS_DIR)/gitignore/dxc/($env.GODOT_CROSS_DXC_VERSION)/dxc",
-                $"mesa_libs=($env.GODOT_CROSS_GODOT_NIR_DIR)"
-            ]
-        },
-        _ => []
-    }
+    print $"running scons: scons ($scons_args | str join ' ')"
 
     # NOTE: lto=full is breaking things for now so not passing it
-    # TODO: Allow users to pass custom scons commands
-    (run-external scons 
-        $"platform=($platform)"
-        ...$platform_scons_args
-        ...$extra_scons_args
-        $arch_arg
-        $"debug_symbols=($debug_symbols)"
-        $"($target_arg)"
-        "module_mono_enabled=yes"
-        $"compiledb=($compiledb)"
-        "precision=double"
-        $"import_env_vars=($import_env_vars)"
-        $"custom_modules=($config.custom_modules)"
-        $"CC=($cc)"
-        $"CXX=($cxx)")
+    run-external scons ...$scons_args
 
     if not $skip_cs_glue {
         main godot clean dotnet
