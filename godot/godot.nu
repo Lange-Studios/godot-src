@@ -147,14 +147,11 @@ export def "main godot build template windows" [
         --platform windows)
 }
 
-# Build the godot editor for the host platform
-export def "main godot build template android" [
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+export def "main android config" [
+    --include-ndk-dir
 ] {
-    use ../nudep/core.nu *
-
-    let android_cli_version = "11076708_latest";
-    let android_cli_platform = match $nu.os-info.name {
+    let cli_version = "11076708_latest";
+    let cli_platform = match $nu.os-info.name {
         "windows" => "win",
         "linux" => "linux",
         "macos" => "mac",
@@ -162,15 +159,39 @@ export def "main godot build template android" [
             error make { msg: $"Unsupported host os: ($nu.os-info.name)" }
         }
     }
-    let android_cli_root_dir = $"($env.GODOT_CROSS_DIR)/gitignore/android-cli"
-    let android_cli_version_dir = $"($android_cli_root_dir)/($android_cli_platform)-($android_cli_version)"
-    let android_cli_zip = $"($android_cli_root_dir)/($android_cli_platform)-($android_cli_version).zip";
+    let cli_root_dir = $"($env.GODOT_CROSS_DIR)/gitignore/android-cli"
+    let cli_version_dir = $"($cli_root_dir)/($cli_platform)-($cli_version)"
+    let cli_zip = $"($cli_root_dir)/($cli_platform)-($cli_version).zip"
+
+    # If we haven't yet extracted the cli, this will fail and error
+    let ndk_dir = match $include_ndk_dir {
+        true => (ls -f $"($cli_version_dir)/ndk" | $in.0.name)
+        false => null
+    }
+
+    return {
+        cli_version: $cli_version,
+        cli_platform: $cli_platform,
+        cli_root_dir: $cli_root_dir,
+        cli_version_dir: $cli_version_dir,
+        cli_zip: $cli_zip,
+        ndk_dir: $ndk_dir
+    }
+}
+
+# Build the godot editor for the host platform
+export def "main godot build template android" [
+    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+] {
+    use ../nudep/core.nu *
+
+    let android_config = main android config
 
     (nudep http file 
-        $"https://dl.google.com/android/repository/commandlinetools-($android_cli_platform)-($android_cli_version).zip"
-        $android_cli_zip)
+        $"https://dl.google.com/android/repository/commandlinetools-($android_config.cli_platform)-($android_config.cli_version).zip"
+        $android_config.cli_zip)
     
-    nudep decompress $android_cli_zip $android_cli_version_dir
+    nudep decompress $android_config.cli_zip $android_config.cli_version_dir
 
     let jdk_zip_extension = match $nu.os-info.name {
         "windows" => "zip",
@@ -186,7 +207,7 @@ export def "main godot build template android" [
     nudep decompress $"($jdk_root_dir)/($jdk_zip_name)" $jdk_version_dir
     
     $env.PATH = ($env.PATH | prepend $"($jdk_version_dir)/jdk-17.0.10+7/bin")
-    $env.ANDROID_HOME = $"($android_cli_version_dir)"
+    $env.ANDROID_HOME = $"($android_config.cli_version_dir)"
 
     if not ($"($env.ANDROID_HOME)/cmdline-tools/latest/bin/sdkmanager" | path exists) {
         mkdir $"($env.ANDROID_HOME)/cmdline-tools/latest"
@@ -456,4 +477,17 @@ export def "main godot export windows" [
     %~dp0\\vc_redist.x64.exe /install /quiet /norestart
     start %~dp0\\($out_file | path basename) %" | 
         save -f $"($out_dir)/start.bat"
+}
+
+export def "main godot export android" [
+    --project: string # Path to the folder with a project.godot file that will be exported
+    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --skip-template
+    --out-file: string
+] {
+    if not $skip_template {
+        main godot build template android --release-mode=$release_mode
+    }
+
+    main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --platform="Android"
 }

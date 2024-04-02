@@ -3,5 +3,5 @@ def --wrapped "main zig" [
     ...rest
 ] {
     use ../../nudep zig
-    zig ...$rest
+    zig run ...$rest
 }
