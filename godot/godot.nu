@@ -439,7 +439,6 @@ export def "main godot export windows" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
-    --skip-cs-glue # Skips generating or rebuilding the csharp glue
     --out-file: string
 ] {
     use ../nudep/core.nu *
