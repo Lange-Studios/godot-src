@@ -149,6 +149,96 @@ export def "main godot build template windows" [
         --platform windows)
 }
 
+# Build the godot editor for the host platform
+export def "main godot build template android" [
+    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --skip-cs-glue # Skips generating or rebuilding the csharp glue
+] {
+    use ../nudep/core.nu *
+
+    let android_cli_version = "11076708_latest";
+    let android_cli_platform = match $nu.os-info.name {
+        "windows" => "win",
+        "linux" => "linux",
+        "macos" => "mac",
+        _ => {
+            error make { msg: $"Unsupported host os: ($nu.os-info.name)" }
+        }
+    }
+    let android_cli_root_dir = $"($env.GODOT_CROSS_DIR)/gitignore/android-cli"
+    let android_cli_version_dir = $"($android_cli_root_dir)/($android_cli_platform)-($android_cli_version)"
+    let android_cli_zip = $"($android_cli_root_dir)/($android_cli_platform)-($android_cli_version).zip";
+
+    (nudep http file 
+        $"https://dl.google.com/android/repository/commandlinetools-($android_cli_platform)-($android_cli_version).zip"
+        $android_cli_zip)
+    
+    nudep decompress $android_cli_zip $android_cli_version_dir
+
+    let jdk_zip_extension = match $nu.os-info.name {
+        "windows" => "zip",
+        _ => "tar.gz"
+    }
+
+    let jdk_root_dir = $"($env.GODOT_CROSS_DIR)/gitignore/jdk"
+    let jdk_version_dir = $"($jdk_root_dir)/OpenJDK17U-jdk_x64_($nu.os-info.name)_hotspot_17.0.10_7"
+    let jdk_root_url = "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.10%2B7"
+    let jdk_zip_name = $"OpenJDK17U-jdk_x64_($nu.os-info.name)_hotspot_17.0.10_7.($jdk_zip_extension)"
+
+    nudep http file $"($jdk_root_url)/($jdk_zip_name)" $"($jdk_root_dir)/($jdk_zip_name)"
+    nudep decompress $"($jdk_root_dir)/($jdk_zip_name)" $jdk_version_dir
+    
+    $env.PATH = ($env.PATH | prepend $"($jdk_version_dir)/jdk-17.0.10+7/bin")
+    $env.ANDROID_HOME = $"($android_cli_version_dir)"
+
+    if not ($"($env.ANDROID_HOME)/cmdline-tools/latest/bin/sdkmanager" | path exists) {
+        mkdir $"($env.ANDROID_HOME)/cmdline-tools/latest"
+        ls -f $"($env.ANDROID_HOME)/cmdline-tools" | 
+            where { |item| $item.name != $"($env.ANDROID_HOME)/cmdline-tools/latest" } | 
+            each { |item| mv $item.name $"($env.ANDROID_HOME)/cmdline-tools/latest" }
+    }
+
+    (run-external $"($env.ANDROID_HOME)/cmdline-tools/latest/bin/sdkmanager" 
+        $"--sdk_root=($env.ANDROID_HOME)/sdk" 
+        "--licenses")
+    (run-external $"($env.ANDROID_HOME)/cmdline-tools/latest/bin/sdkmanager" 
+        $"--sdk_root=($env.ANDROID_HOME)/sdk" 
+        "platform-tools" 
+        "build-tools;30.0.3" 
+        "platforms;android-29" 
+        "cmdline-tools;latest" 
+        "cmake;3.10.2.4988404")
+
+    (main godot build 
+        --release-mode $release_mode 
+        --skip-cs-glue=$skip_cs_glue 
+        --target template 
+        --platform android
+        --arch arm32)
+
+    (main godot build 
+        --release-mode $release_mode 
+        --skip-cs-glue=$skip_cs_glue 
+        --target template 
+        --platform android
+        --arch arm64)
+
+    (main godot build 
+        --release-mode $release_mode 
+        --skip-cs-glue=$skip_cs_glue 
+        --target template 
+        --platform android
+        --arch x86_32)
+
+    (main godot build 
+        --release-mode $release_mode 
+        --skip-cs-glue=$skip_cs_glue 
+        --target template 
+        --platform android
+        --arch x86_64
+        "generate_apk=yes")
+}
+
 export def "main godot clean dotnet" [] {
     use ../utils/utils.nu
     let config = main godot config
@@ -170,6 +260,8 @@ export def "main godot build" [
     --platform: string # the platform to build for
     --compiledb, # Whether or not to compile the databse for ides
     --target: string # specify a target such as template
+    --arch: string,
+    ...extra_scons_args
 ] {
     use utils.nu godot-platform
     use ../utils/utils.nu validate_arg
@@ -188,6 +280,20 @@ export def "main godot build" [
     # require zig to be installed
     nudep zig run version
 
+    let zig_arch = match $arch {
+        "arm64" => "aarch64"
+        "arm32" | "x86_32" | "x86_64" => $arch,
+        null => "x86_64",
+        _ => {
+            error make { msg: $"unsupported arch: ($arch)" }
+        }
+    }
+
+    let arch_arg = match $arch {
+        null => "",
+        _ => $"arch=($arch)"
+    }
+
     let cc_cxx = match $platform {
         "windows" => { 
             cc: $"(nudep zig bin) cc -target x86_64-windows", 
@@ -197,6 +303,29 @@ export def "main godot build" [
             cc: $"(nudep zig bin) cc -target x86_64-linux-gnu", 
             cxx: $"(nudep zig bin) c++ -target x86_64-linux-gnu" 
         },
+        "android" => {
+            match $arch {
+                "arm32" => { 
+                    cc: $"(nudep zig bin) cc -target arm-linux-android", 
+                    cxx: $"(nudep zig bin) c++ -target arm-linux-android" 
+                },
+                "arm64" => { 
+                    cc: $"(nudep zig bin) cc -target aarch64-linux-android", 
+                    cxx: $"(nudep zig bin) c++ -target aarch64-linux-android" 
+                },
+                "x86_32" => { 
+                    cc: $"(nudep zig bin) cc -target x86-linux-android", 
+                    cxx: $"(nudep zig bin) c++ -target x86-linux-android" 
+                },
+                "x86_64" => { 
+                    cc: $"(nudep zig bin) cc -target x86_64-linux-android", 
+                    cxx: $"(nudep zig bin) c++ -target x86_64-linux-android" 
+                },
+                _ => {
+                    error make { msg: $"Invalid arch '($arch)' for android. Must be arm32, arm64, x86_32, x86_64." }
+                }
+            }
+        }
         _ => { 
             error make {
                 msg: $"unsupported platform: ($platform)"
@@ -228,7 +357,7 @@ export def "main godot build" [
 
     cd $config.godot_dir
 
-    let extra_scons_args = match $platform {
+    let platform_scons_args = match $platform {
         "windows" => {
             [
                 "d3d12=yes",
@@ -244,7 +373,9 @@ export def "main godot build" [
     # TODO: Allow users to pass custom scons commands
     (run-external scons 
         $"platform=($platform)"
+        ...$platform_scons_args
         ...$extra_scons_args
+        $arch_arg
         $"debug_symbols=($debug_symbols)"
         $"($target_arg)"
         "module_mono_enabled=yes"

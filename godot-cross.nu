@@ -1,7 +1,5 @@
 $env.GODOT_CROSS_DIR = $env.GODOT_CROSS_DIR? | $env.FILE_PWD
 
-source godot/build-android-template.nu
-source godot/build-linux-template.nu
 source zig/nu/zig.nu
 source godot/godot.nu
 
