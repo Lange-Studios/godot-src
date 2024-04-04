@@ -147,9 +147,7 @@ export def "main godot build template windows" [
         --platform windows)
 }
 
-export def "main android config" [
-    --include-ndk-dir
-] {
+export def "main android config" [] {
     let cli_version = "11076708_latest";
     let cli_platform = match $nu.os-info.name {
         "windows" => "win",
@@ -163,11 +161,21 @@ export def "main android config" [
     let cli_version_dir = $"($cli_root_dir)/($cli_platform)-($cli_version)"
     let cli_zip = $"($cli_root_dir)/($cli_platform)-($cli_version).zip"
 
-    # If we haven't yet extracted the cli, this will fail and error
-    let ndk_dir = match $include_ndk_dir {
-        true => (ls -f $"($cli_version_dir)/ndk" | $in.0.name)
-        false => null
-    }
+    # Read the lines of android/detect.py
+    let android_detect_lines = open $"($env.GODOT_CROSS_GODOT_DIR)/platform/android/detect.py" | 
+        split row "\n" | 
+        filter { |i| ($i | str trim) != "" }
+    # Find the line where "def get_ndk_version():" is so we can get the return value on the next line
+    let get_ndk_index = $android_detect_lines | 
+        enumerate | 
+        where { |el| ($el.item | str trim) == "def get_ndk_version():" } | 
+        get index.0 
+    # Get the return value on the next line and remove unneeded characters like "return" and quotes
+    let ndk_version = $android_detect_lines | 
+        get ($get_ndk_index + 1) | 
+        str trim | 
+        str substring 7.. | 
+        str trim -c "\""
 
     return {
         cli_version: $cli_version,
@@ -175,24 +183,11 @@ export def "main android config" [
         cli_root_dir: $cli_root_dir,
         cli_version_dir: $cli_version_dir,
         cli_zip: $cli_zip,
-        ndk_dir: $ndk_dir
+        ndk_dir: $"($cli_version_dir)/ndk/($ndk_version)"
     }
 }
 
-# Build the godot editor for the host platform
-export def "main godot build template android" [
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
-] {
-    use ../nudep/core.nu *
-
-    let android_config = main android config
-
-    (nudep http file 
-        $"https://dl.google.com/android/repository/commandlinetools-($android_config.cli_platform)-($android_config.cli_version).zip"
-        $android_config.cli_zip)
-    
-    nudep decompress $android_config.cli_zip $android_config.cli_version_dir
-
+export def "main jdk config" [] {
     let jdk_zip_extension = match $nu.os-info.name {
         "windows" => "zip",
         _ => "tar.gz"
@@ -202,11 +197,50 @@ export def "main godot build template android" [
     let jdk_version_dir = $"($jdk_root_dir)/OpenJDK17U-jdk_x64_($nu.os-info.name)_hotspot_17.0.10_7"
     let jdk_root_url = "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.10%2B7"
     let jdk_zip_name = $"OpenJDK17U-jdk_x64_($nu.os-info.name)_hotspot_17.0.10_7.($jdk_zip_extension)"
+    let jdk_zip_url = $"($jdk_root_url)/($jdk_zip_name)"
+    let jdk_zip_path = $"($jdk_root_dir)/($jdk_zip_name)";
+    let jdk_home_dir = $"($jdk_version_dir)/jdk-17.0.10+7"
+    let jdk_bin_dir = $"($jdk_home_dir)/bin"
 
-    nudep http file $"($jdk_root_url)/($jdk_zip_name)" $"($jdk_root_dir)/($jdk_zip_name)"
-    nudep decompress $"($jdk_root_dir)/($jdk_zip_name)" $jdk_version_dir
+    {
+        zip_extension: $jdk_zip_extension,
+        root_dir: $jdk_root_dir,
+        version_dir: $jdk_version_dir,
+        root_url: $jdk_root_url,
+        zip_name: $jdk_zip_name,
+        zip_url: $jdk_zip_url,
+        zip_path: $jdk_zip_path,
+        home_dir: $jdk_home_dir,
+        bin_dir: $jdk_bin_dir,
+    }
+}
+
+export def --wrapped "main jdk run" [
+    command: string, 
+    ...rest
+] {
+    run-external $"(main jdk config | get "bin_dir")/($command)" ...$rest
+}
+
+# Build the godot editor for the host platform
+export def "main godot build template android" [
+    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+] {
+    use ../nudep/core.nu *
+
+    let android_config = main android config
+    let jdk_config = main jdk config
+
+    (nudep http file 
+        $"https://dl.google.com/android/repository/commandlinetools-($android_config.cli_platform)-($android_config.cli_version).zip"
+        $android_config.cli_zip)
     
-    $env.PATH = ($env.PATH | prepend $"($jdk_version_dir)/jdk-17.0.10+7/bin")
+    nudep decompress $android_config.cli_zip $android_config.cli_version_dir
+
+    nudep http file $jdk_config.zip_url $jdk_config.zip_path
+    nudep decompress $jdk_config.zip_path $jdk_config.version_dir
+    
+    $env.PATH = ($env.PATH | prepend $jdk_config.bin_dir)
     $env.ANDROID_HOME = $"($android_config.cli_version_dir)"
 
     if not ($"($env.ANDROID_HOME)/cmdline-tools/latest/bin/sdkmanager" | path exists) {
@@ -416,11 +450,12 @@ export def "main godot build" [
 export def "main godot clean" [] {
 }
 
-export def "main godot export" [
+export def --wrapped "main godot export" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
     --out-file: string
     --platform: string
+    ...rest
 ] {
     use ../utils/utils.nu
     utils validate_arg_exists $out_file "--out-file" ((metadata $out_file).span)
@@ -428,7 +463,8 @@ export def "main godot export" [
     let out_dir = ($"($out_file)/.." | path expand)
     rm -rf $out_dir
     mkdir $out_dir
-    main godot run --headless --path $project $"--export-($release_mode)" $platform $out_file
+    
+    main godot run --headless --install-android-build-template --path $project $"--export-($release_mode)" $platform ...$rest $out_file
 }
 
 export def "main godot export linux" [
@@ -489,5 +525,22 @@ export def "main godot export android" [
         main godot build template android --release-mode=$release_mode
     }
 
-    main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --platform="Android"
+    let android_config = main android config
+    let jdk_config = main jdk config
+
+    # We can see the environment variables that godot will be looking for here: 
+    # https://github.com/godotengine/godot/blob/29b3d9e9e538f0aa8effc8ad8bf19a2915292a89/platform/android/export/export.cpp#L43
+    # https://docs.godotengine.org/en/latest/tutorials/export/exporting_for_android.html#id1
+    $env.JAVA_HOME = $jdk_config.home_dir
+    $env.ANDROID_HOME = $"($android_config.cli_version_dir)/sdk"
+    $env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH = "/home/tcroc/dev/BlockyBallOT/debug.keystore"
+    $env.GODOT_ANDROID_KEYSTORE_DEBUG_USER = "androiddebugkey"
+    $env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD = "android"
+
+    (main godot export 
+        --project=$project 
+        --release-mode=$release_mode 
+        --out-file=$out_file 
+        --platform="Android" 
+        --install-android-build-template)
 }
