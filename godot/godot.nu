@@ -454,7 +454,7 @@ export def --wrapped "main godot export" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
     --out-file: string
-    --platform: string
+    --preset: string
     ...rest
 ] {
     use ../utils/utils.nu
@@ -464,26 +464,28 @@ export def --wrapped "main godot export" [
     rm -rf $out_dir
     mkdir $out_dir
     
-    main godot run --headless --install-android-build-template --path $project $"--export-($release_mode)" $platform ...$rest $out_file
+    main godot run --headless --install-android-build-template --path $project $"--export-($release_mode)" $preset ...$rest $out_file
 }
 
 export def "main godot export linux" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
+    --preset: string = "Linux",
     --out-file: string
 ] {
     if not $skip_template {
         main godot build template linux --release-mode=$release_mode
     }
 
-    main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --platform="Linux"
+    main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
 }
 
 export def "main godot export windows" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
+    --preset: string = "Windows Desktop"
     --out-file: string
 ] {
     use ../nudep/core.nu *
@@ -502,7 +504,7 @@ export def "main godot export windows" [
     nudep http file https://aka.ms/vs/17/release/vc_redist.x64.exe $vc_redist_path
 
     let dxil_path = $"($env.GODOT_CROSS_DIR)/gitignore/dxc/($env.GODOT_CROSS_DXC_VERSION)/dxc/bin/x64/dxil.dll"
-    main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --platform="Windows Desktop"
+    main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
     let out_dir = ($"($out_file)/.." | path expand)
     cp $vc_redist_path $out_dir
     cp $dxil_path $out_dir
@@ -519,6 +521,7 @@ export def "main godot export android" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
+    --preset: string = "Android"
     --out-file: string
 ] {
     if not $skip_template {
@@ -531,8 +534,8 @@ export def "main godot export android" [
     # We can see the environment variables that godot will be looking for here: 
     # https://github.com/godotengine/godot/blob/29b3d9e9e538f0aa8effc8ad8bf19a2915292a89/platform/android/export/export.cpp#L43
     # https://docs.godotengine.org/en/latest/tutorials/export/exporting_for_android.html#id1
-    $env.JAVA_HOME = $jdk_config.home_dir
-    $env.ANDROID_HOME = $"($android_config.cli_version_dir)/sdk"
+    # $env.JAVA_HOME = $jdk_config.home_dir
+    # $env.ANDROID_HOME = $"($android_config.cli_version_dir)/sdk"
     $env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH = "/home/tcroc/dev/BlockyBallOT/debug.keystore"
     $env.GODOT_ANDROID_KEYSTORE_DEBUG_USER = "androiddebugkey"
     $env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD = "android"
@@ -541,6 +544,6 @@ export def "main godot export android" [
         --project=$project 
         --release-mode=$release_mode 
         --out-file=$out_file 
-        --platform="Android" 
+        --preset=$preset 
         --install-android-build-template)
 }
