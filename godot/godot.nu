@@ -474,7 +474,7 @@ export def --wrapped "main godot export" [
     rm -rf $out_dir
     mkdir $out_dir
     
-    main godot run --headless --install-android-build-template --path $project $"--export-($release_mode)" $preset ...$rest $out_file
+    main godot run --headless --path $project $"--export-($release_mode)" $preset ...$rest $out_file
 }
 
 export def "main godot export linux" [
@@ -527,12 +527,13 @@ export def "main godot export windows" [
         save -f $"($out_dir)/start.bat"
 }
 
-export def "main godot export android" [
+export def --wrapped "main godot export android" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
     --preset: string = "Android"
     --out-file: string
+    ...rest
 ] {
     if not $skip_template {
         main godot build template android --release-mode=$release_mode
@@ -554,5 +555,6 @@ export def "main godot export android" [
         --project=$project 
         --release-mode=$release_mode 
         --out-file=$out_file 
-        --preset=$preset)
+        --preset=$preset
+        ...$rest)
 }
