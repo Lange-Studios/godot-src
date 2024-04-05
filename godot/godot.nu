@@ -227,6 +227,16 @@ export def "main godot build template android" [
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
 ] {
     use ../nudep/core.nu *
+    use ../utils/utils.nu
+    
+    let godot_config = main godot config
+
+    # Gradle doesn't seem to rebuild when godot source changes.  So we need to force it.
+    # Fortunately this part of the build seems to be rather quick.
+    utils git remove ignored $"($godot_config.godot_dir)/platform/android/java"
+    rm -rf $"($godot_config.godot_dir)/bin/android_source.zip"
+    rm -rf $"($godot_config.godot_dir)/bin/android_($release_mode).apk"
+    rm -rf $"($godot_config.godot_dir)/bin/godot-lib.template_($release_mode).aar"
 
     let android_config = main android config
     let jdk_config = main jdk config
@@ -544,6 +554,5 @@ export def "main godot export android" [
         --project=$project 
         --release-mode=$release_mode 
         --out-file=$out_file 
-        --preset=$preset 
-        --install-android-build-template)
+        --preset=$preset)
 }
