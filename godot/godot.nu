@@ -79,7 +79,7 @@ export def "main godot clean all" [] {
     use ../utils/utils.nu
 
     let config = main godot config
-    utils git remove ignored $config.godot_dir ...($config.custom_modules | split row ",")
+    utils git remove ignored $config.godot_dir
 }
 
 # Deletes godot and the directory where it is installed.  Only runs if auto_install_godot is true
@@ -220,6 +220,12 @@ export def --wrapped "main jdk run" [
     ...rest
 ] {
     run-external $"(main jdk config | get "bin_dir")/($command)" ...$rest
+}
+
+export def --wrapped "main android adb run" [
+    ...rest
+] {
+    run-external --redirect-combine $"(main android config | get "cli_version_dir")/sdk/platform-tools/adb" ...$rest
 }
 
 # Build the godot editor for the host platform
