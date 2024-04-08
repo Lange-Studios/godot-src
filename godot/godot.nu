@@ -222,6 +222,12 @@ export def --wrapped "main jdk run" [
     run-external $"(main jdk config | get "bin_dir")/($command)" ...$rest
 }
 
+export def "main android key-fingerprint" [
+    keystore_path: string
+] {
+    main jdk run keytool -keystore $keystore_path -list -v
+}
+
 export def --wrapped "main android adb run" [
     ...rest
 ] {
