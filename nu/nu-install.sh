@@ -4,8 +4,6 @@ set -e
 
 dir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
 
-eval "$("$dir/nu-env.sh")"
-
 if "$GODOT_CROSS_NU_DIR/nu" --version > /dev/null 2>&1
 then
     exit 0
