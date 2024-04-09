@@ -222,10 +222,59 @@ export def --wrapped "main jdk run" [
     run-external $"(main jdk config | get "bin_dir")/($command)" ...$rest
 }
 
-export def "main android key-fingerprint" [
+# Prints the fingerprint of the keystore at the provided path
+export def "main android key fingerprint" [
     keystore_path: string
 ] {
     main jdk run keytool -keystore $keystore_path -list -v
+}
+
+# Documented here: https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_android.html#create-a-debug-keystore
+# 
+# Uses the following environment variables: 
+# 
+# GODOT_ANDROID_KEYSTORE_DEBUG_PATH
+# GODOT_ANDROID_KEYSTORE_DEBUG_USER
+# GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD
+export def "main android key create debug" [] {
+    $env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH? | default $"($env.FILE_PWD)/debug.keystore")
+    $env.GODOT_ANDROID_KEYSTORE_DEBUG_USER = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_USER? | default "androiddebugkey")
+    $env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD? | default "android")
+
+    (main android key create
+        $env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH
+        $env.GODOT_ANDROID_KEYSTORE_DEBUG_USER
+        $env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD
+        $env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD
+        "CN=Android Debug,O=Android,C=US"
+        9999)
+}
+
+export def "main android key create" [
+    keystore_path: string,
+    alias: string,
+    keypass: string,
+    storepass: string,
+    dname: string,
+    validity: int
+] {
+    if ($keystore_path | path exists) {
+        print $"Keystore at path already exists: ($keystore_path)"
+        return
+    }
+
+    print $"Creating keystore at path: ($keystore_path)"
+
+    (main jdk run keytool 
+        "-keyalg" "RSA" 
+        "-genkeypair" 
+        "-alias" $alias 
+        "-keypass" $keypass 
+        "-keystore" $keystore_path 
+        "-storepass" $storepass 
+        "-dname" $dname 
+        "-validity" $validity 
+        "-deststoretype" "pkcs12")
 }
 
 export def --wrapped "main android adb run" [
@@ -553,15 +602,6 @@ export def --wrapped "main godot export android" [
 
     let android_config = main android config
     let jdk_config = main jdk config
-
-    # We can see the environment variables that godot will be looking for here: 
-    # https://github.com/godotengine/godot/blob/29b3d9e9e538f0aa8effc8ad8bf19a2915292a89/platform/android/export/export.cpp#L43
-    # https://docs.godotengine.org/en/latest/tutorials/export/exporting_for_android.html#id1
-    # $env.JAVA_HOME = $jdk_config.home_dir
-    # $env.ANDROID_HOME = $"($android_config.cli_version_dir)/sdk"
-    $env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH = "/home/tcroc/dev/BlockyBallOT/debug.keystore"
-    $env.GODOT_ANDROID_KEYSTORE_DEBUG_USER = "androiddebugkey"
-    $env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD = "android"
 
     (main godot export 
         --project=$project 
