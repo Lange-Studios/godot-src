@@ -148,78 +148,21 @@ export def "main godot build template windows" [
 }
 
 export def "main android config" [] {
-    let cli_version = "11076708_latest";
-    let cli_platform = match $nu.os-info.name {
-        "windows" => "win",
-        "linux" => "linux",
-        "macos" => "mac",
-        _ => {
-            error make { msg: $"Unsupported host os: ($nu.os-info.name)" }
-        }
-    }
-    let cli_root_dir = $"($env.GODOT_CROSS_DIR)/gitignore/android-cli"
-    let cli_version_dir = $"($cli_root_dir)/($cli_version)"
-    let cli_zip = $"($cli_root_dir)/($cli_platform)-($cli_version).zip"
-
-    # Read the lines of android/detect.py
-    let android_detect_lines = open $"($env.GODOT_CROSS_GODOT_DIR)/platform/android/detect.py" | 
-        split row "\n" | 
-        filter { |i| ($i | str trim) != "" }
-    # Find the line where "def get_ndk_version():" is so we can get the return value on the next line
-    let get_ndk_index = $android_detect_lines | 
-        enumerate | 
-        where { |el| ($el.item | str trim) == "def get_ndk_version():" } | 
-        get index.0 
-    # Get the return value on the next line and remove unneeded characters like "return" and quotes
-    let ndk_version = $android_detect_lines | 
-        get ($get_ndk_index + 1) | 
-        str trim | 
-        str substring 7.. | 
-        str trim -c "\""
-
-    return {
-        cli_version: $cli_version,
-        cli_platform: $cli_platform,
-        cli_root_dir: $cli_root_dir,
-        cli_version_dir: $cli_version_dir,
-        cli_zip: $cli_zip,
-        ndk_dir: $"($cli_version_dir)/ndk/($ndk_version)"
-    }
+    use ../nudep/android-cli.nu
+    android-cli config
 }
 
 export def "main jdk config" [] {
-    let jdk_zip_extension = match $nu.os-info.name {
-        "windows" => "zip",
-        _ => "tar.gz"
-    }
-
-    let jdk_root_dir = $"($env.GODOT_CROSS_DIR)/gitignore/jdk"
-    let jdk_version_dir = $"($jdk_root_dir)/OpenJDK17U-jdk_hotspot_17.0.10_7"
-    let jdk_root_url = "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.10%2B7"
-    let jdk_zip_name = $"OpenJDK17U-jdk_x64_($nu.os-info.name)_hotspot_17.0.10_7.($jdk_zip_extension)"
-    let jdk_zip_url = $"($jdk_root_url)/($jdk_zip_name)"
-    let jdk_zip_path = $"($jdk_root_dir)/($jdk_zip_name)";
-    let jdk_home_dir = $"($jdk_version_dir)/jdk-17.0.10+7"
-    let jdk_bin_dir = $"($jdk_home_dir)/bin"
-
-    {
-        zip_extension: $jdk_zip_extension,
-        root_dir: $jdk_root_dir,
-        version_dir: $jdk_version_dir,
-        root_url: $jdk_root_url,
-        zip_name: $jdk_zip_name,
-        zip_url: $jdk_zip_url,
-        zip_path: $jdk_zip_path,
-        home_dir: $jdk_home_dir,
-        bin_dir: $jdk_bin_dir,
-    }
+    use ../nudep/jdk.nu
+    jdk config
 }
 
 export def --wrapped "main jdk run" [
     command: string, 
     ...rest
 ] {
-    run-external $"(main jdk config | get "bin_dir")/($command)" ...$rest
+    use ../nudep/jdk.nu
+    jdk run $command ...$rest
 }
 
 # Prints the fingerprint of the keystore at the provided path
@@ -287,9 +230,13 @@ export def --wrapped "main android adb run" [
 export def "main godot build template android" [
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
 ] {
-    use ../nudep/core.nu *
     use ../utils/utils.nu
-    
+    use ../nudep/jdk.nu
+    use ../nudep/android-cli.nu
+
+    jdk download
+    android-cli download
+
     let godot_config = main godot config
 
     # Gradle doesn't seem to rebuild when godot source changes.  So we need to force it.
@@ -301,15 +248,6 @@ export def "main godot build template android" [
 
     let android_config = main android config
     let jdk_config = main jdk config
-
-    (nudep http file 
-        $"https://dl.google.com/android/repository/commandlinetools-($android_config.cli_platform)-($android_config.cli_version).zip"
-        $android_config.cli_zip)
-    
-    nudep decompress $android_config.cli_zip $android_config.cli_version_dir
-
-    nudep http file $jdk_config.zip_url $jdk_config.zip_path
-    nudep decompress $jdk_config.zip_path $jdk_config.version_dir
     
     $env.PATH = ($env.PATH | prepend $jdk_config.bin_dir)
     $env.ANDROID_HOME = $"($android_config.cli_version_dir)"
@@ -472,22 +410,25 @@ export def "main godot build" [
         }
     }
 
-    # Set the global and local cache directories since scons requires it
-    let zig_config = nudep zig config
-    $env.ZIG_GLOBAL_CACHE_DIR = $zig_config.local_cache_dir
-    $env.ZIG_LOCAL_CACHE_DIR = $zig_config.global_cache_dir
-
-    match $config.import_env_vars {
-        null | "" => { 
-            $scons_args = ($scons_args | append "import_env_vars=ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR")
-        },
-        _ => {
-            $scons_args = ($scons_args | append $"import_env_vars=ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR,($config.import_env_vars)")
+    # Don't use zig to compile android.  Use Google's ndk
+    if $platform != "android" {
+        # Set the global and local cache directories since scons requires it
+        let zig_config = nudep zig config
+        $env.ZIG_GLOBAL_CACHE_DIR = $zig_config.local_cache_dir
+        $env.ZIG_LOCAL_CACHE_DIR = $zig_config.global_cache_dir
+    
+        match $config.import_env_vars {
+            null | "" => { 
+                $scons_args = ($scons_args | append "import_env_vars=ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR")
+            },
+            _ => {
+                $scons_args = ($scons_args | append $"import_env_vars=ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR,($config.import_env_vars)")
+            }
         }
-    }
-
-    if $config.custom_modules != null and $config.custom_modules != "" {
-        $scons_args = ($scons_args | append $"custom_modules=($config.custom_modules)")
+    
+        if $config.custom_modules != null and $config.custom_modules != "" {
+            $scons_args = ($scons_args | append $"custom_modules=($config.custom_modules)")
+        }
     }
 
     cd $config.godot_dir
@@ -609,4 +550,26 @@ export def --wrapped "main godot export android" [
         --out-file=$out_file 
         --preset=$preset
         ...$rest)
+}
+
+export def --wrapped "main cmake run" [
+    cmd: string, 
+    ...rest
+] {
+    use ../nudep/cmake.nu
+    cmake run $cmd ...$rest
+}
+
+export def --wrapped "main ninja run" [...rest] {
+    use ../nudep/ninja.nu
+    ninja run ...$rest
+}
+
+export def "main vulkan compile validation android" [
+    android_libs_path: string,
+    --release-mode: string,
+] {
+    use ../nudep/vulkan-validation-layers.nu
+    vulkan-validation-layers compile android $android_libs_path "arm64-v8a" --release-mode=$release_mode
+    # vulkan-validation-layers compile android $android_libs_path "x86_64" --release-mode=$release_mode
 }

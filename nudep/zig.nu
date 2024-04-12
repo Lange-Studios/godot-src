@@ -1,11 +1,14 @@
 use core.nu *
 use platform_constants.nu *
 
+const GODOT_CROSS_ZIG_VERSION_DEFAULT = "0.12.0-dev.3496+a2df84d0f"
+
 export def config [] {
     let zig_dir = $"($env.GODOT_CROSS_DIR)/($DEP_DIR)/zig";
 
     return {
-        zig_dir: $zig_dir
+        zig_dir: $zig_dir,
+        version: ($env.GODOT_CROSS_ZIG_VERSION? | default $GODOT_CROSS_ZIG_VERSION_DEFAULT)
         local_cache_dir: $"($zig_dir)/cache",
         global_cache_dir: $"($zig_dir)/cache"
     }
@@ -16,7 +19,7 @@ export def --wrapped run [
     ...rest
 ] {
     let config = config
-    let version = "0.12.0-dev.3496+a2df84d0f"
+    let version = $config.version
     let zig_dir = $config.zig_dir;
     let zig_version_dir = $"($zig_dir)/($version)"
     let zig_bin = bin
@@ -52,10 +55,9 @@ export def --wrapped run [
 
 # returns the path to the zig binary
 export def bin [] {
-    let version = $env.GODOT_CROSS_ZIG_VERSION? | default "0.12.0-dev.3496+a2df84d0f"
-    let zig_dir = (config).zig_dir
-    let zig_version_dir = $"($zig_dir)/($version)"
-    return $"($zig_version_dir)/zig-($nu.os-info.name)-($nu.os-info.arch)-($version)/zig";
+    let config = config
+    let zig_version_dir = $"($config.zig_dir)/($config.version)"
+    return $"($zig_version_dir)/zig-($nu.os-info.name)-($nu.os-info.arch)-($config.version)/zig";
 }
 
 # Deletes zig and the directory where it is installed
