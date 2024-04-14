@@ -228,6 +228,8 @@ export def --wrapped "main android adb run" [
 
 # Build the godot editor for the host platform
 export def "main godot build template android" [
+    # The architectures to build for. Defaults to: [ "arm32", "arm64", "x86_32", "x86_64" ]
+    --archs: list<string> = [ "arm32", "arm64", "x86_32", "x86_64" ],
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
 ] {
     use ../utils/utils.nu
@@ -270,34 +272,21 @@ export def "main godot build template android" [
         "cmdline-tools;latest" 
         "cmake;3.10.2.4988404")
 
-    (main godot build 
-        --release-mode $release_mode 
-        --skip-cs-glue 
-        --target template 
-        --platform android
-        --arch arm32)
+    $archs | enumerate | each { |arch|
+        # Always generate the apk last
+        let extra_args = match ($arch.index == (($archs | length) - 1)) {
+            true => [ "generate_apk=yes" ],
+            false => []
+        }
 
-    (main godot build 
-        --release-mode $release_mode 
-        --skip-cs-glue 
-        --target template 
-        --platform android
-        --arch arm64)
-
-    (main godot build 
-        --release-mode $release_mode 
-        --skip-cs-glue 
-        --target template 
-        --platform android
-        --arch x86_32)
-
-    (main godot build 
-        --release-mode $release_mode 
-        --skip-cs-glue 
-        --target template 
-        --platform android
-        --arch x86_64
-        "generate_apk=yes")
+        (main godot build 
+            --release-mode $release_mode 
+            --skip-cs-glue 
+            --target template 
+            --platform android
+            --arch $arch.item
+            ...$extra_args)
+    }
 }
 
 export def "main godot clean dotnet" [] {
@@ -307,6 +296,12 @@ export def "main godot clean dotnet" [] {
     utils git remove ignored $"($config.godot_dir)/modules/mono/glue/GodotSharp"
     utils git remove ignored $"($config.godot_dir)/modules/mono/editor/Godot.NET.Sdk"
     utils git remove ignored $"($config.godot_dir)/modules/mono/editor/GodotTools"
+    # Remove all cached godot nuget packages to ensure they get rebuilt
+    # TODO: Figure out how to publish them to a local folder
+    rm -rf $"($env.HOME)/.nuget/packages/godot.net.sdk"
+    rm -rf $"($env.HOME)/.nuget/packages/godot.sourcegenerators"
+    rm -rf $"($env.HOME)/.nuget/packages/godotsharp"
+    rm -rf $"($env.HOME)/.nuget/packages/godotsharpeditor"
 }
 
 # use --help to see commands and details
