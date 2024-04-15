@@ -1,9 +1,10 @@
-# godot-cross
+# godot-src
 
-Welcome to ``godot-cross``!  The intent of this project is 2 things:
+Welcome to ``godot-src``!  The intent of this project is 3 things:
 
 1. Make compiling godot from source easy.
 2. Make cross compiling godot from any desktop platform to any supported godot platform easy.
+3. Provide a suite of tools to increase efficiency when working on godot from source.
 
 How are we going to accomplish this?
 
@@ -49,7 +50,7 @@ Now that we've done that, we should be able to try out compiling for linux and w
 Make sure to clone this repo :)
 
 ```
-git clone https://github.com/Lange-Studios/godot-cross.git
+git clone https://github.com/Lange-Studios/godot-src.git
 ```
 
 Then you can build:
@@ -91,7 +92,7 @@ Row = target platform
 | Linux           | ✅         | ❌           | ❌       |
 | Windows Desktop | ✅         | ❌           | ❌       |
 | Mac             | ❌         | ❌           | ❌       |
-| Android         | ❌         | ❌           | ❌       |
+| Android         | ✅         | ❌           | ❌       |
 | iOS             | ❌         | ❌           | ❌       |
 | Steam Deck      | ❌         | ❌           | ❌       |
 | Switch          | ❌         | ❌           | ❌       |
