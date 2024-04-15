@@ -1,4 +1,4 @@
-$env.GODOT_CROSS_DIR = $env.GODOT_CROSS_DIR? | $env.FILE_PWD
+$env.GODOT_CROSS_DIR = ($env.GODOT_CROSS_DIR? | default $env.FILE_PWD)
 
 source zig/nu/zig.nu
 source godot/godot.nu
@@ -11,7 +11,7 @@ def "main build" [] {
 def main [] {
 }
 
-# prints the contents of $env visible to the root of godot-cross
+# prints the contents of $env visible to the root of gsrc
 def "main env" [] {
     print $env
 }
