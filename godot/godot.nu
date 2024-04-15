@@ -1,7 +1,7 @@
 export def "main godot config" [] {
     use ../nudep/core.nu *
     use utils.nu
-    let godot_dir = ($env.GODOT_CROSS_GODOT_DIR? | default $"($env.GODOT_CROSS_DIR)/($DEP_DIR)/gitignore");
+    let godot_dir = ($env.GODOT_CROSS_GODOT_DIR? | default $"($env.GODOT_CROSS_DIR)/($DEP_DIR)/godot");
     let godot_platform = utils godot-platform $nu.os-info.name
     let arch = $nu.os-info.arch
 
@@ -17,8 +17,6 @@ export def "main godot config" [] {
     }
 
     let godot_bin = $"($godot_dir)/bin/godot.($godot_platform).editor.double.($arch)($extra_suffix).mono($extension)"
-
-    print $"godot bin is: ($godot_bin)"
 
     return {
         godot_dir: $godot_dir,
