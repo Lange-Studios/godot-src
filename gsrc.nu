@@ -11,7 +11,7 @@ def "main build" [] {
 def main [] {
 }
 
-# prints the contents of $env visible to the root of godot-cross
+# prints the contents of $env visible to the root of gsrc
 def "main env" [] {
     print $env
 }
