@@ -10,7 +10,15 @@ export def "main godot config" [] {
         _ => ""
     }
 
-    let godot_bin = $"($godot_dir)/bin/godot.($godot_platform).editor.double.($arch).mono($extension)"
+    mut extra_suffix = ($env.GODOT_CROSS_GODOT_EXTRA_SUFFIX? | default "")
+    $extra_suffix = match ($extra_suffix | str length) {
+        0 => "",
+        _ => $".($extra_suffix)"
+    }
+
+    let godot_bin = $"($godot_dir)/bin/godot.($godot_platform).editor.double.($arch)($extra_suffix).mono($extension)"
+
+    print $"godot bin is: ($godot_bin)"
 
     return {
         godot_dir: $godot_dir,
@@ -46,9 +54,15 @@ export def --wrapped "main godot run" [
 
 # Build the godot editor for the host platform
 export def "main godot build editor" [
-    --skip-cs-glue
+    --skip-cs-glue,
+    --extra-scons-args: list<string>
 ] {
-    main godot build --release-mode "debug" --skip-cs-glue=$skip_cs_glue --compiledb --platform $nu.os-info.name
+    (main godot build 
+        --release-mode "debug" 
+        --skip-cs-glue=$skip_cs_glue 
+        --compiledb 
+        --platform $nu.os-info.name 
+        --extra-scons-args $extra_scons_args)
 }
 
 export def "main godot clean editor" [] {
@@ -285,7 +299,7 @@ export def "main godot build template android" [
             --target template 
             --platform android
             --arch $arch.item
-            ...$extra_args)
+            --extra-scons-args $extra_args)
     }
 }
 
@@ -317,7 +331,7 @@ export def "main godot build" [
     --compiledb, # Whether or not to compile the databse for ides
     --target: string # specify a target such as template
     --arch: string,
-    ...extra_scons_args
+    --extra-scons-args: list<string>
 ] {
     use utils.nu godot-platform
     use ../utils/utils.nu validate_arg
