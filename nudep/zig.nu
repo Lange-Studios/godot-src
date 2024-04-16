@@ -1,14 +1,14 @@
 use core.nu *
 use platform_constants.nu *
 
-const GODOT_CROSS_ZIG_VERSION_DEFAULT = "0.12.0-dev.3496+a2df84d0f"
+const GODOT_SRC_ZIG_VERSION_DEFAULT = "0.12.0-dev.3496+a2df84d0f"
 
 export def config [] {
-    let zig_dir = $"($env.GODOT_CROSS_DIR)/($DEP_DIR)/zig";
+    let zig_dir = $"($env.GODOT_SRC_DIR)/($DEP_DIR)/zig";
 
     return {
         zig_dir: $zig_dir,
-        version: ($env.GODOT_CROSS_ZIG_VERSION? | default $GODOT_CROSS_ZIG_VERSION_DEFAULT)
+        version: ($env.GODOT_SRC_ZIG_VERSION? | default $GODOT_SRC_ZIG_VERSION_DEFAULT)
         local_cache_dir: $"($zig_dir)/cache",
         global_cache_dir: $"($zig_dir)/cache"
     }

@@ -5,7 +5,7 @@
 # $env.CC = $"(utils zig path native-shell) cc
 # $env.CXX = $"(utils zig path native-shell) c++
 export def "zig path native-shell" [] {
-    $"($env.GODOT_CROSS_DIR)/zig/native-shell/($nu.os-info.name)/zig"
+    $"($env.GODOT_SRC_DIR)/zig/native-shell/($nu.os-info.name)/zig"
 }
 
 export def validate_arg [

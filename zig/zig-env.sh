@@ -6,7 +6,7 @@ dir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
 
 root_dir="$dir/.."
 
-config_dir="${GODOT_CROSS_CONFIG_DIR:="$root_dir/config"}"
+config_dir="${GODOT_SRC_CONFIG_DIR:="$root_dir/config"}"
 version="${ZIG_VERSION:="$(cat "$config_dir/zig-version.txt")"}"
 
 if [[ "$OSTYPE" == "linux-gnu"* ]]

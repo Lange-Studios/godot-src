@@ -1,11 +1,11 @@
 use core.nu *
 use platform_constants.nu *
 
-const GODOT_CROSS_VULKAN_VALIDATION_VERSION_DEFAULT = "1.3.250.1"
+const GODOT_SRC_VULKAN_VALIDATION_VERSION_DEFAULT = "1.3.250.1"
 
 export def config [] {
-    let dir = $"($env.GODOT_CROSS_DIR)/($DEP_DIR)/vulkan-validation"
-    let version = ($env.GODOT_CROSS_VULKAN_VALIDATION_VERSION? | default $GODOT_CROSS_VULKAN_VALIDATION_VERSION_DEFAULT)
+    let dir = $"($env.GODOT_SRC_DIR)/($DEP_DIR)/vulkan-validation"
+    let version = ($env.GODOT_SRC_VULKAN_VALIDATION_VERSION? | default $GODOT_SRC_VULKAN_VALIDATION_VERSION_DEFAULT)
 
     return {
         dir: $dir,

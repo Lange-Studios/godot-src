@@ -4,7 +4,7 @@ export def config [] {
         _ => "tar.gz"
     }
 
-    let jdk_root_dir = $"($env.GODOT_CROSS_DIR)/gitignore/jdk"
+    let jdk_root_dir = $"($env.GODOT_SRC_DIR)/gitignore/jdk"
     let jdk_version_dir = $"($jdk_root_dir)/OpenJDK17U-jdk_hotspot_17.0.10_7"
     let jdk_root_url = "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.10%2B7"
     let jdk_zip_name = $"OpenJDK17U-jdk_x64_($nu.os-info.name)_hotspot_17.0.10_7.($jdk_zip_extension)"
