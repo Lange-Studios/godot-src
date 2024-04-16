@@ -4,4 +4,4 @@ set -e
 
 dir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
 
-"$dir/../../godot-cross.sh" zig "$@"
+"$dir/../../gsrc.sh" zig "$@"
