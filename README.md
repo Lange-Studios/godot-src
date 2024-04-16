@@ -10,7 +10,7 @@ How are we going to accomplish this?
 
 Reduce system dependencies.
 
-I don't think we will be able to get this to 0, but I think we can get pretty close.  Currently the cross compilation logic is being driven by [nushell](https://www.nushell.sh/) scripts.  You will see that the bash scripts are using ``zig cc``, ``zig c++``, and other ``zig [compiler-tool]`` throughout the scripts to comile different platforms.
+I don't think we will be able to get this to 0, but I think we can get pretty close.  Currently the cross compilation logic is being driven by [nushell](https://www.nushell.sh/) scripts.  You will see that there are also some bash scripts using ``zig cc``, ``zig c++``, and other ``zig [compiler-tool]`` throughout the scripts to comile different platforms and map cli args to the ``zig`` equivalent.
 
 Progress has already been made by eliminating the llvm and mingw dependencies via zig's drop in compiler :)
 
