@@ -1,7 +1,7 @@
 export def "main godot config" [] {
     use ../nudep/core.nu *
     use utils.nu
-    let godot_dir = ($env.GODOT_CROSS_GODOT_DIR? | default $"($env.GODOT_CROSS_DIR)/($DEP_DIR)/godot");
+    let godot_dir = ($env.GODOT_SRC_GODOT_DIR? | default $"($env.GODOT_SRC_DIR)/($DEP_DIR)/godot");
     let godot_platform = utils godot-platform $nu.os-info.name
     let arch = $nu.os-info.arch
 
@@ -10,7 +10,7 @@ export def "main godot config" [] {
         _ => ""
     }
 
-    mut extra_suffix = ($env.GODOT_CROSS_GODOT_EXTRA_SUFFIX? | default "")
+    mut extra_suffix = ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX? | default "")
     $extra_suffix = match ($extra_suffix | str length) {
         0 => "",
         _ => $".($extra_suffix)"
@@ -21,9 +21,9 @@ export def "main godot config" [] {
     return {
         godot_dir: $godot_dir,
         godot_bin: $godot_bin,
-        auto_install_godot: ($env.GODOT_CROSS_AUTO_INSTALL_GODOT? | default true),
-        import_env_vars: ($env.GODOT_CROSS_IMPORT_ENV_VARS? | default ""),
-        custom_modules: ($env.GODOT_CROSS_CUSTOM_MODULES? | default "")
+        auto_install_godot: ($env.GODOT_SRC_AUTO_INSTALL_GODOT? | default true),
+        import_env_vars: ($env.GODOT_SRC_IMPORT_ENV_VARS? | default ""),
+        custom_modules: ($env.GODOT_SRC_CUSTOM_MODULES? | default "")
     }
 }
 
@@ -129,12 +129,12 @@ export def "main godot build template windows" [
     nudep zig run version
     let zig_bin_dir = ($"(nudep zig bin)/.." | path expand)
 
-    let godot_nir_dir = $env.GODOT_CROSS_GODOT_NIR_DIR
+    let godot_nir_dir = $env.GODOT_SRC_GODOT_NIR_DIR
 
     let prev_dir = $env.PWD
     cd $godot_nir_dir
 
-    $env.MINGW_PREFIX = $"($env.GODOT_CROSS_DIR)/zig/mingw"
+    $env.MINGW_PREFIX = $"($env.GODOT_SRC_DIR)/zig/mingw"
 
     pip3 install mako
 
@@ -147,10 +147,10 @@ export def "main godot build template windows" [
 
     cd $prev_dir
 
-    let dxc_dir = $"($env.GODOT_CROSS_DIR)/gitignore/dxc"
+    let dxc_dir = $"($env.GODOT_SRC_DIR)/gitignore/dxc"
 
-    nudep http file $"https://github.com/microsoft/DirectXShaderCompiler/releases/download/($env.GODOT_CROSS_DXC_VERSION)/($env.GODOT_CROSS_DXC_DATE).zip" $"($dxc_dir)/($env.GODOT_CROSS_DXC_VERSION)/($env.GODOT_CROSS_DXC_DATE).zip"
-    nudep decompress $"($dxc_dir)/($env.GODOT_CROSS_DXC_VERSION)/($env.GODOT_CROSS_DXC_DATE).zip" $"($dxc_dir)/($env.GODOT_CROSS_DXC_VERSION)/dxc"
+    nudep http file $"https://github.com/microsoft/DirectXShaderCompiler/releases/download/($env.GODOT_SRC_DXC_VERSION)/($env.GODOT_SRC_DXC_DATE).zip" $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/($env.GODOT_SRC_DXC_DATE).zip"
+    nudep decompress $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/($env.GODOT_SRC_DXC_DATE).zip" $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/dxc"
 
     (main godot build 
         --release-mode $release_mode 
@@ -375,8 +375,8 @@ export def "main godot build" [
                 $"CXX=(nudep zig bin) c++ -target x86_64-windows"
                 "d3d12=yes",
                 "vulkan=no"
-                $"dxc_path=($env.GODOT_CROSS_DIR)/gitignore/dxc/($env.GODOT_CROSS_DXC_VERSION)/dxc",
-                $"mesa_libs=($env.GODOT_CROSS_GODOT_NIR_DIR)"
+                $"dxc_path=($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc",
+                $"mesa_libs=($env.GODOT_SRC_GODOT_NIR_DIR)"
             ])
         },
         "linux" => {
@@ -519,10 +519,10 @@ export def "main godot export windows" [
     #   https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170
     # And here's a helpful tutorial for using it without window popup prompts:
     #   https://www.asawicki.info/news_1597_installing_visual_c_redistributable_package_from_command_line.html
-    let vc_redist_path = $"($env.GODOT_CROSS_DIR)/gitignore/vc_redist/vc_redist.x64.exe"
+    let vc_redist_path = $"($env.GODOT_SRC_DIR)/gitignore/vc_redist/vc_redist.x64.exe"
     nudep http file https://aka.ms/vs/17/release/vc_redist.x64.exe $vc_redist_path
 
-    let dxil_path = $"($env.GODOT_CROSS_DIR)/gitignore/dxc/($env.GODOT_CROSS_DXC_VERSION)/dxc/bin/x64/dxil.dll"
+    let dxil_path = $"($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc/bin/x64/dxil.dll"
     main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
     let out_dir = ($"($out_file)/.." | path expand)
     cp $vc_redist_path $out_dir

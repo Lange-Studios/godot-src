@@ -1,6 +1,6 @@
 # dotnet builds require libssl and libcrypto to be pacakged manually for .net.  Issue here: https://github.com/godotengine/godot/issues/84559
 export def config [] {
-    let root_dir = $"($env.GODOT_CROSS_DIR)/gitignore/android-openssl"
+    let root_dir = $"($env.GODOT_SRC_DIR)/gitignore/android-openssl"
     let version = "1.1.1p-beta-1"
     let version_dir = $"($root_dir)/openssl-($version)"
     let zip_name = $"openssl-($version).aar"

@@ -1,11 +1,11 @@
 use core.nu *
 use platform_constants.nu *
 
-const GODOT_CROSS_NINJA_VERSION_DEFAULT = "1.11.1"
+const GODOT_SRC_NINJA_VERSION_DEFAULT = "1.11.1"
 
 export def config [] {
-    let dir = $"($env.GODOT_CROSS_DIR)/($DEP_DIR)/ninja"
-    let version = ($env.GODOT_CROSS_NINJA_VERSION? | default $GODOT_CROSS_NINJA_VERSION_DEFAULT)
+    let dir = $"($env.GODOT_SRC_DIR)/($DEP_DIR)/ninja"
+    let version = ($env.GODOT_SRC_NINJA_VERSION? | default $GODOT_SRC_NINJA_VERSION_DEFAULT)
 
     return {
         dir: $dir,

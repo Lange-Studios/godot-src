@@ -4,17 +4,17 @@ set -e
 
 dir="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
 
-if "$GODOT_CROSS_NU_DIR/nu" --version > /dev/null 2>&1
+if "$GODOT_SRC_NU_DIR/nu" --version > /dev/null 2>&1
 then
     exit 0
 fi
 
 if [[ "$OSTYPE" == "linux-gnu"* ]]
 then
-    zip=nu-$GODOT_CROSS_NU_VERSION-$(arch)-unknown-linux-musl.tar.gz
-    url=https://github.com/nushell/nushell/releases/download/$GODOT_CROSS_NU_VERSION/$zip
-    "$dir/../utils/http.sh" "$url" "$GODOT_CROSS_NU_DIR/../$zip"
-    tar -xvf "$GODOT_CROSS_NU_DIR/../$zip" -C "$GODOT_CROSS_NU_DIR/../"
+    zip=nu-$GODOT_SRC_NU_VERSION-$(arch)-unknown-linux-musl.tar.gz
+    url=https://github.com/nushell/nushell/releases/download/$GODOT_SRC_NU_VERSION/$zip
+    "$dir/../utils/http.sh" "$url" "$GODOT_SRC_NU_DIR/../$zip"
+    tar -xvf "$GODOT_SRC_NU_DIR/../$zip" -C "$GODOT_SRC_NU_DIR/../"
 elif [[ "$OSTYPE" == "darwin"* ]]
 then
     # TODO
@@ -31,4 +31,4 @@ else
     exit 1
 fi
 
-"$GODOT_CROSS_NU_DIR/nu" --version
+"$GODOT_SRC_NU_DIR/nu" --version
