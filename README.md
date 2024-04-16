@@ -10,8 +10,7 @@ How are we going to accomplish this?
 
 Reduce system dependencies.
 
-I don't think we will be able to get this to 0, but I think we can get pretty close.  Currently the cross compilation logic is being driven by bash scripts.  This was done before I started getting more familiar with zig.  You will see that the bash scripts are using ``zig cc``, ``zig c++``, and other ``zig [compiler-tool]`` throughout the scripts to comile different platforms.  I want to explore porting this over to zig's build system and eliminate our need for bash.
-
+I don't think we will be able to get this to 0, but I think we can get pretty close.  Currently the cross compilation logic is being driven by [nushell](https://www.nushell.sh/) scripts.  You will see that the bash scripts are using ``zig cc``, ``zig c++``, and other ``zig [compiler-tool]`` throughout the scripts to comile different platforms.
 
 Progress has already been made by eliminating the llvm and mingw dependencies via zig's drop in compiler :)
 
@@ -27,7 +26,9 @@ First we must install the dependencies as documented by godot: https://docs.godo
 
 Fortunately for linux users, we have distro specific oneliners here: https://docs.godotengine.org/en/stable/contributing/development/compiling/compiling_for_linuxbsd.html#distro-specific-one-liners
 
-^ Note we shouildn't need the gcc, g++, and ming tools anymore.  I'm not sure about the mesa-dev and libx11-dev libs since we are also pulling those in from source now.  I need to test without those.
+^ Note we shouildn't need the gcc, g++, and ming tools anymore.  I'm not sure about the mesa-dev and libx11-dev libs since we are also pulling those in from source now.  I need to test without those.  We don't even need nushell installed!  Running ``gsrc.sh`` will run some brief native programs such as wget or curl to download it to the ``gitignore/nu`` relative to this repo directory folder.  Then it will forward cli args passed to ``gsrc.sh`` to ``gsrc.nu``.
+
+TODO: Create a ``.bat`` and / or ``.ps1`` script for a native windows entrypoint.
 
 ## Rust
 
@@ -56,12 +57,14 @@ git clone https://github.com/Lange-Studios/godot-src.git
 Then you can build:
 
 ```
-./godot/godot-build.sh # This will build the godot editor for your host platform
+./gsrc.sh godot build editor # This will build the godot editor for your host platform
 ```
 
 You should then see the godot version for your target platform under [gitignore/godot/bin](gitignore/godot/bin)
 
 ### Example Projects
+
+NOTE: These were created before nushell.  They are being ported from bash to nushell and may not even work at the moment.
 
 Build the hello world project:
 ```
