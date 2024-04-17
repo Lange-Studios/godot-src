@@ -1,28 +1,51 @@
+use ../nudep
+use utils.nu
+
+$env.GODOT_SRC_DOTNET_ENABLED = ($env.GODOT_SRC_DOTNET_ENABLED? | default false)
+$env.GODOT_SRC_DOTNET_USE_SYSTEM = ($env.GODOT_SRC_DOTNET_USE_SYSTEM? | default false)
+$env.GODOT_SRC_PRECISION = ($env.GODOT_SRC_PRECISION? | default "single")
+
+# Default godot's platform to the host machine unless specified otherwise and make sure dotnet
+# is set up for the host machine
+$env.GODOT_SRC_GODOT_PLATFORM = ($env.GODOT_SRC_GODOT_PLATFORM? | default (utils godot-platform $nu.os-info.name))
+$env.PATH = (nudep dotnet init)
+
 export def "main godot config" [] {
     use ../nudep/core.nu *
     use utils.nu
     let godot_dir = ($env.GODOT_SRC_GODOT_DIR? | default $"($env.GODOT_SRC_DIR)/($DEP_DIR)/godot");
     let godot_platform = utils godot-platform $nu.os-info.name
-    let arch = match $nu.os-info.arch {
+    let extra_suffix = ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX? | default "")
+
+    mut godot_bin_name = [
+        "godot",
+        $godot_platform,
+        "editor",
+    ]
+
+    if $env.GODOT_SRC_PRECISION == "double" {
+        $godot_bin_name = ($godot_bin_name | append "double")
+    }
+
+    $godot_bin_name = ($godot_bin_name | append (match $nu.os-info.arch {
         "aarch32" => "arm32",
         "aarch64" => "arm64",
         _ => $nu.os-info.arch,
+    }))
+
+    if $env.GODOT_SRC_GODOT_EXTRA_SUFFIX? != null and ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX | str trim) != "" {
+        $godot_bin_name = ($godot_bin_name | append $env.GODOT_SRC_GODOT_EXTRA_SUFFIX)
     }
 
-    let extension = match $godot_platform {
-        "windows" => ".exe",
-        _ => ""
+    if $env.GODOT_SRC_DOTNET_ENABLED {
+        $godot_bin_name = ($godot_bin_name | append "mono")
     }
 
-    mut extra_suffix = ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX? | default "")
-    $extra_suffix = match ($extra_suffix | str length) {
-        0 => "",
-        _ => $".($extra_suffix)"
+    if $godot_platform == "windows" {
+        $godot_bin_name = ($godot_bin_name | append "exe")
     }
 
-    let godot_bin = $"($godot_dir)/bin/godot.($godot_platform).editor.double.($arch)($extra_suffix).mono($extension)"
-
-    print $"godot bin is: ($godot_bin)"
+    let godot_bin = $"($godot_dir)/bin/($godot_bin_name | str join ".")"
 
     return {
         godot_dir: $godot_dir,
@@ -39,7 +62,11 @@ export def --wrapped "main godot run" [
 ] {
     use ../nudep/core.nu *
     use ../nudep/platform_constants.nu *
-    
+    use ../nudep
+
+    # Update the path with dotnet if we are using it
+    $env.PATH = (nudep dotnet init)
+
     let config = main godot config;
 
     if $config.auto_install_godot {
@@ -86,9 +113,9 @@ export def "main godot clean editor" [] {
         "use_llvm=yes"
         "linker=lld"
         "debug_symbols=yes"
-        "module_mono_enabled=yes"
+        $"module_mono_enabled=($env.GODOT_SRC_DOTNET_ENABLED)"
         "compiledb=yes"
-        "precision=double")
+        $"precision=($env.GODOT_SRC_PRECISION)")
 }
 
 export def "main godot clean all" [] {
@@ -352,8 +379,8 @@ export def "main godot build" [
     }
 
     mut scons_args = ([
-        "module_mono_enabled=yes",
-        "precision=double",
+        $"module_mono_enabled=($env.GODOT_SRC_DOTNET_ENABLED)",
+        $"precision=($env.GODOT_SRC_PRECISION)",
         $"compiledb=($compiledb)"
     ] | append $extra_scons_args)
 
@@ -454,7 +481,7 @@ export def "main godot build" [
     # NOTE: lto=full is breaking things for now so not passing it
     run-external scons ...$scons_args
 
-    if not $skip_cs_glue {
+    if $env.GODOT_SRC_DOTNET_ENABLED and not $skip_cs_glue {
         main godot clean dotnet
         # The directory where godot will be built out to
         mkdir $"($config.godot_dir)/bin"
@@ -465,11 +492,11 @@ export def "main godot build" [
             "--headless" 
             "--generate-mono-glue" 
             $"($config.godot_dir)/modules/mono/glue" 
-            "--precision=double")
+            $"--precision=($env.GODOT_SRC_PRECISION)")
         (run-external 
             $"($config.godot_dir)/modules/mono/build_scripts/build_assemblies.py"
             $"--godot-output-dir=($config.godot_dir)/bin"
-            "--precision=double"
+            $"--precision=($env.GODOT_SRC_PRECISION)"
             $"--godot-platform=($platform)")
     }
 }
@@ -506,6 +533,7 @@ export def "main godot export linux" [
         main godot build template linux --release-mode=$release_mode
     }
 
+    $env.GODOT_SRC_GODOT_PLATFORM = "linux"
     main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
 }
 
@@ -532,6 +560,7 @@ export def "main godot export windows" [
     nudep http file https://aka.ms/vs/17/release/vc_redist.x64.exe $vc_redist_path
 
     let dxil_path = $"($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc/bin/x64/dxil.dll"
+    $env.GODOT_SRC_GODOT_PLATFORM = "windows"
     main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
     let out_dir = ($"($out_file)/.." | path expand)
     cp $vc_redist_path $out_dir
@@ -560,6 +589,7 @@ export def --wrapped "main godot export android" [
     let android_config = main android config
     let jdk_config = main jdk config
 
+    $env.GODOT_SRC_GODOT_PLATFORM = "android"
     (main godot export 
         --project=$project 
         --release-mode=$release_mode 
