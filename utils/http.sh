@@ -5,27 +5,19 @@ out_file="$2"
 out_dir="$(dirname "$out_file")"
 mkdir -p "$out_dir"
 
-if [[ "$OSTYPE" == "linux-gnu"* ]]
+echo "downloading: $url to $out_dir"
+
+https://github.com/nushell/nushell/releases/download/0.92.2/nu-0.92.2-aarch64-apple-darwin.tar.gz
+https://github.com/nushell/nushell/releases/download/0.92.2/nu-0.92.2-aarch64-apple-darwin.tar.gz
+
+if [[ "$OSTYPE" == "linux-gnu"* || "$OSTYPE" == "darwin"* ]]
 then
     if wget --version
     then
         wget "$url" -O "$out_file"
     elif curl --version
     then
-        curl "$url" -o "$out_file"
-    else
-        # TODO: Prompt a user to manually download from a url instead and then continue
-        echo "ERROR: wget or curl must be installed"
-        exit 1
-    fi
-elif [[ "$OSTYPE" == "darwin"* ]]
-then
-    if wget --version
-    then
-        wget "$url" -O "$out_file"
-    elif curl --version
-    then
-        curl "$url" -o "$out_file"
+        curl -L "$url" -o "$out_file"
     else
         # TODO: Prompt a user to manually download from a url instead and then continue
         echo "ERROR: wget or curl must be installed"

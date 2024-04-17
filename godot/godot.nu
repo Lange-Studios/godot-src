@@ -3,7 +3,11 @@ export def "main godot config" [] {
     use utils.nu
     let godot_dir = ($env.GODOT_SRC_GODOT_DIR? | default $"($env.GODOT_SRC_DIR)/($DEP_DIR)/godot");
     let godot_platform = utils godot-platform $nu.os-info.name
-    let arch = $nu.os-info.arch
+    let arch = match $nu.os-info.arch {
+        "aarch32" => "arm32",
+        "aarch64" => "arm64",
+        _ => $nu.os-info.arch,
+    }
 
     let extension = match $godot_platform {
         "windows" => ".exe",
@@ -17,6 +21,8 @@ export def "main godot config" [] {
     }
 
     let godot_bin = $"($godot_dir)/bin/godot.($godot_platform).editor.double.($arch)($extra_suffix).mono($extension)"
+
+    print $"godot bin is: ($godot_bin)"
 
     return {
         godot_dir: $godot_dir,
@@ -235,7 +241,7 @@ export def "main android key create" [
 export def --wrapped "main android adb run" [
     ...rest
 ] {
-    run-external --redirect-combine $"(main android config | get "cli_version_dir")/sdk/platform-tools/adb" ...$rest
+    run-external $"(main android config | get "cli_version_dir")/sdk/platform-tools/adb" ...$rest
 }
 
 # Build the godot editor for the host platform
@@ -391,7 +397,10 @@ export def "main godot build" [
             $scons_args = ($scons_args | append [
                 "vulkan=yes"
             ])
-        }
+        },
+        "macos" => {
+            # TODO: Add support for building with zig
+        },
         _ => { 
             error make {
                 msg: $"unsupported platform: ($platform)"

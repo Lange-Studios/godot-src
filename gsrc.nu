@@ -15,3 +15,18 @@ def main [] {
 def "main env" [] {
     print $env
 }
+
+# Start and enter nu as an interactive shell
+def "main nu play" [] {
+    run-external $nu.current-exe "--no-config-file"
+}
+
+# Execute a dotnet command
+def --wrapped "main dotnet run" [
+    channel: string, # The channel of .net to use.  Example: 6.0, 7.0, 8.0, etc.
+    ...rest
+] {
+    use nudep
+
+    nudep dotnet run $channel ...$rest
+}
