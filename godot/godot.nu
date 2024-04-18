@@ -140,18 +140,29 @@ export def "main godot remove" [] {
     rm -r $config.godot_dir
 }
 
-# Build the godot editor for the host platform
+# Build the linux template
 export def "main godot build template linux" [
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
 ] {
     (main godot build 
         --release-mode $release_mode 
         --skip-cs-glue
-        --target template 
-        --platform linux)
+        --target "template" 
+        --platform "linux")
 }
 
-# Build the godot editor for the host platform
+# Build the mac template
+export def "main godot build template mac" [
+    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+] {
+    (main godot build
+        --release-mode $release_mode
+        --skip-cs-glue
+        --target "template"
+        --platform "macos")
+}
+
+# Build the windows template
 export def "main godot build template windows" [
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
 ] {
@@ -188,8 +199,8 @@ export def "main godot build template windows" [
     (main godot build 
         --release-mode $release_mode 
         --skip-cs-glue 
-        --target template 
-        --platform windows)
+        --target "template" 
+        --platform "windows")
 }
 
 export def "main android config" [] {
@@ -271,7 +282,7 @@ export def --wrapped "main android adb run" [
     run-external $"(main android config | get "cli_version_dir")/sdk/platform-tools/adb" ...$rest
 }
 
-# Build the godot editor for the host platform
+# Build the android template
 export def "main godot build template android" [
     # The architectures to build for. Defaults to: [ "arm32", "arm64", "x86_32", "x86_64" ]
     --archs: list<string> = [ "arm32", "arm64", "x86_32", "x86_64" ],
@@ -327,8 +338,8 @@ export def "main godot build template android" [
         (main godot build 
             --release-mode $release_mode 
             --skip-cs-glue 
-            --target template 
-            --platform android
+            --target "template" 
+            --platform "android"
             --arch $arch.item
             --extra-scons-args $extra_args)
     }
