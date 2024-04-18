@@ -10,27 +10,38 @@ $env.GODOT_SRC_PRECISION = ($env.GODOT_SRC_PRECISION? | default "single")
 $env.GODOT_SRC_GODOT_PLATFORM = ($env.GODOT_SRC_GODOT_PLATFORM? | default (utils godot-platform $nu.os-info.name))
 $env.PATH = (nudep dotnet init)
 
-export def "main godot config" [] {
+export def "main godot config" [
+    --target: string = "editor",
+    --release-mode: string,
+    --arch: string,
+] {
     use ../nudep/core.nu *
     use utils.nu
     let godot_dir = ($env.GODOT_SRC_GODOT_DIR? | default $"($env.GODOT_SRC_DIR)/($DEP_DIR)/godot");
     let godot_platform = utils godot-platform $nu.os-info.name
     let extra_suffix = ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX? | default "")
 
+    let target_name = match $target {
+        "template" => $"($target)_($release_mode)",
+        _ => $target,
+    }
+
     mut godot_bin_name = [
         "godot",
         $godot_platform,
-        "editor",
+        $target_name,
     ]
 
     if $env.GODOT_SRC_PRECISION == "double" {
         $godot_bin_name = ($godot_bin_name | append "double")
     }
 
-    $godot_bin_name = ($godot_bin_name | append (match $nu.os-info.arch {
+    let arch = ($arch | default $nu.os-info.arch)
+
+    $godot_bin_name = ($godot_bin_name | append (match $arch {
         "aarch32" => "arm32",
         "aarch64" => "arm64",
-        _ => $nu.os-info.arch,
+        _ => $arch,
     }))
 
     if $env.GODOT_SRC_GODOT_EXTRA_SUFFIX? != null and ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX | str trim) != "" {
@@ -45,11 +56,13 @@ export def "main godot config" [] {
         $godot_bin_name = ($godot_bin_name | append "exe")
     }
 
-    let godot_bin = $"($godot_dir)/bin/($godot_bin_name | str join ".")"
+    let godot_bin_name = ($godot_bin_name | str join ".")
+    let godot_bin = $"($godot_dir)/bin/($godot_bin_name)"
 
     return {
         godot_dir: $godot_dir,
         godot_bin: $godot_bin,
+        godot_bin_name: $godot_bin_name,
         auto_install_godot: ($env.GODOT_SRC_AUTO_INSTALL_GODOT? | default true),
         import_env_vars: ($env.GODOT_SRC_IMPORT_ENV_VARS? | default ""),
         custom_modules: ($env.GODOT_SRC_CUSTOM_MODULES? | default "")
@@ -151,15 +164,47 @@ export def "main godot build template linux" [
         --platform "linux")
 }
 
-# Build the mac template
-export def "main godot build template mac" [
+# Build the macos template
+export def "main godot build template macos" [
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --arch: string,
 ] {
-    (main godot build
-        --release-mode $release_mode
-        --skip-cs-glue
-        --target "template"
-        --platform "macos")
+    let config = (main godot config --target "template" --release-mode $release_mode --arch $arch)
+    cd $config.godot_dir
+
+    if $arch == "universal" {
+        let config_x86_64 = (main godot config --target "template" --release-mode $release_mode --arch "x86_64")
+        let config_arm64 = (main godot config --target "template" --release-mode $release_mode --arch "arm64")
+
+        (main godot build
+            --release-mode $release_mode
+            --skip-cs-glue
+            --target "template"
+            --platform "macos"
+            --arch "x86_64")
+
+        (main godot build
+            --release-mode $release_mode
+            --skip-cs-glue
+            --target "template"
+            --platform "macos"
+            --arch "arm64")
+
+        (lipo 
+            -create 
+                $"bin/($config_x86_64.godot_bin_name)"
+                $"bin/($config_arm64.godot_bin_name)"
+            -output $"bin/($config.godot_bin_name)")
+    } else {
+        (main godot build
+            --release-mode $release_mode
+            --skip-cs-glue
+            --target "template"
+            --platform "macos"
+            --arch $arch)
+    }
+
+    return $config
 }
 
 # Build the windows template
@@ -394,6 +439,13 @@ export def "main godot build" [
         $"precision=($env.GODOT_SRC_PRECISION)",
         $"compiledb=($compiledb)"
     ] | append $extra_scons_args)
+
+    if ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX? | default "") != "" {
+        $scons_args = ($scons_args | append [
+            $"extra_suffix=($env.GODOT_SRC_GODOT_EXTRA_SUFFIX)", 
+            $"object_prefix=($env.GODOT_SRC_GODOT_EXTRA_SUFFIX)", 
+        ])
+    }
 
     let zig_arch = match $arch {
         "arm64" => "aarch64"
