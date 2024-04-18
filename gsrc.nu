@@ -1,3 +1,5 @@
+# Append the current running new instance to the path
+$env.PATH = ($env.PATH | prepend ($nu.current-exe | path dirname))
 $env.GODOT_SRC_DIR = ($env.GODOT_SRC_DIR? | default $env.FILE_PWD)
 
 source zig/nu/zig.nu
