@@ -94,7 +94,7 @@ Row = target platform
 |-----------------|------------|--------------|----------|
 | Linux           | ✅         | ❌           | ❌       |
 | Windows Desktop | ✅         | ❌           | ❌       |
-| Mac             | ❌         | ❌           | ❌       |
+| Mac             | ❌         | ❌           | ✅       |
 | Android         | ✅         | ❌           | ❌       |
 | iOS             | ❌         | ❌           | ❌       |
 | Steam Deck      | ❌         | ❌           | ❌       |
