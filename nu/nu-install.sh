@@ -9,17 +9,13 @@ then
     exit 0
 fi
 
-if [[ "$OSTYPE" == "linux-gnu"* ]]
+zip="nu-$GODOT_SRC_NU_VERSION-$GODOT_SRC_NU_ARCH-$GODOT_SRC_NU_PLATFORM.$GODOT_SRC_NU_ZIP_EXT"
+url=https://github.com/nushell/nushell/releases/download/$GODOT_SRC_NU_VERSION/$zip
+"$dir/../utils/http.sh" "$url" "$GODOT_SRC_NU_DIR/../$zip"
+
+if [[ "$OSTYPE" == "linux-gnu"* || "$OSTYPE" == "darwin"* ]]
 then
-    zip=nu-$GODOT_SRC_NU_VERSION-$(arch)-unknown-linux-musl.tar.gz
-    url=https://github.com/nushell/nushell/releases/download/$GODOT_SRC_NU_VERSION/$zip
-    "$dir/../utils/http.sh" "$url" "$GODOT_SRC_NU_DIR/../$zip"
     tar -xvf "$GODOT_SRC_NU_DIR/../$zip" -C "$GODOT_SRC_NU_DIR/../"
-elif [[ "$OSTYPE" == "darwin"* ]]
-then
-    # TODO
-    echo "ERROR: OS $OSTYPE is unsupported"
-    exit 1
 elif [[ "$OSTYPE" == "cygwin" || "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]
 then
     # TODO

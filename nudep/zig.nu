@@ -28,7 +28,7 @@ export def --wrapped run [
     $env.ZIG_LOCAL_CACHE_DIR = $config.global_cache_dir
 
     let is_valid = try {
-        run-external --redirect-combine $zig_bin "version" | complete | get stdout | str trim | $in == $version
+        run-external $zig_bin "version" o+e>| complete | get stdout | str trim | $in == $version
     } catch {
         false
     }

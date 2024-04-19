@@ -56,11 +56,11 @@ export def validate_arg_exists [
 # returns a list of gitignored folders and directories
 export def "git list ignored" [...dirs: string] {
     $dirs | each { 
-        |dir| cd $dir | (run-external --redirect-combine git 
+        |dir| cd $dir | (run-external git 
             "status"
             .
             "--ignored"
-            "--short" |
+            "--short" o+e>|
                 complete |
                 get stdout |
                 str trim |

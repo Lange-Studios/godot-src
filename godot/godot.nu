@@ -1,26 +1,68 @@
-export def "main godot config" [] {
+use ../nudep
+use utils.nu
+
+$env.GODOT_SRC_DOTNET_ENABLED = ($env.GODOT_SRC_DOTNET_ENABLED? | default false)
+$env.GODOT_SRC_DOTNET_USE_SYSTEM = ($env.GODOT_SRC_DOTNET_USE_SYSTEM? | default false)
+$env.GODOT_SRC_PRECISION = ($env.GODOT_SRC_PRECISION? | default "single")
+
+# Default godot's platform to the host machine unless specified otherwise and make sure dotnet
+# is set up for the host machine
+$env.GODOT_SRC_GODOT_PLATFORM = ($env.GODOT_SRC_GODOT_PLATFORM? | default (utils godot-platform $nu.os-info.name))
+$env.PATH = (nudep dotnet init)
+
+export def "main godot config" [
+    --target: string = "editor",
+    --release-mode: string,
+    --arch: string,
+] {
     use ../nudep/core.nu *
     use utils.nu
     let godot_dir = ($env.GODOT_SRC_GODOT_DIR? | default $"($env.GODOT_SRC_DIR)/($DEP_DIR)/godot");
     let godot_platform = utils godot-platform $nu.os-info.name
-    let arch = $nu.os-info.arch
+    let extra_suffix = ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX? | default "")
 
-    let extension = match $godot_platform {
-        "windows" => ".exe",
-        _ => ""
+    let target_name = match $target {
+        "template" => $"($target)_($release_mode)",
+        _ => $target,
     }
 
-    mut extra_suffix = ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX? | default "")
-    $extra_suffix = match ($extra_suffix | str length) {
-        0 => "",
-        _ => $".($extra_suffix)"
+    mut godot_bin_name = [
+        "godot",
+        $godot_platform,
+        $target_name,
+    ]
+
+    if $env.GODOT_SRC_PRECISION == "double" {
+        $godot_bin_name = ($godot_bin_name | append "double")
     }
 
-    let godot_bin = $"($godot_dir)/bin/godot.($godot_platform).editor.double.($arch)($extra_suffix).mono($extension)"
+    let arch = ($arch | default $nu.os-info.arch)
+
+    $godot_bin_name = ($godot_bin_name | append (match $arch {
+        "aarch32" => "arm32",
+        "aarch64" => "arm64",
+        _ => $arch,
+    }))
+
+    if $env.GODOT_SRC_GODOT_EXTRA_SUFFIX? != null and ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX | str trim) != "" {
+        $godot_bin_name = ($godot_bin_name | append $env.GODOT_SRC_GODOT_EXTRA_SUFFIX)
+    }
+
+    if $env.GODOT_SRC_DOTNET_ENABLED {
+        $godot_bin_name = ($godot_bin_name | append "mono")
+    }
+
+    if $godot_platform == "windows" {
+        $godot_bin_name = ($godot_bin_name | append "exe")
+    }
+
+    let godot_bin_name = ($godot_bin_name | str join ".")
+    let godot_bin = $"($godot_dir)/bin/($godot_bin_name)"
 
     return {
         godot_dir: $godot_dir,
         godot_bin: $godot_bin,
+        godot_bin_name: $godot_bin_name,
         auto_install_godot: ($env.GODOT_SRC_AUTO_INSTALL_GODOT? | default true),
         import_env_vars: ($env.GODOT_SRC_IMPORT_ENV_VARS? | default ""),
         custom_modules: ($env.GODOT_SRC_CUSTOM_MODULES? | default "")
@@ -33,7 +75,11 @@ export def --wrapped "main godot run" [
 ] {
     use ../nudep/core.nu *
     use ../nudep/platform_constants.nu *
-    
+    use ../nudep
+
+    # Update the path with dotnet if we are using it
+    $env.PATH = (nudep dotnet init)
+
     let config = main godot config;
 
     if $config.auto_install_godot {
@@ -80,9 +126,9 @@ export def "main godot clean editor" [] {
         "use_llvm=yes"
         "linker=lld"
         "debug_symbols=yes"
-        "module_mono_enabled=yes"
+        $"module_mono_enabled=($env.GODOT_SRC_DOTNET_ENABLED)"
         "compiledb=yes"
-        "precision=double")
+        $"precision=($env.GODOT_SRC_PRECISION)")
 }
 
 export def "main godot clean all" [] {
@@ -107,18 +153,85 @@ export def "main godot remove" [] {
     rm -r $config.godot_dir
 }
 
-# Build the godot editor for the host platform
+# Build the linux template
 export def "main godot build template linux" [
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
 ] {
     (main godot build 
         --release-mode $release_mode 
         --skip-cs-glue
-        --target template 
-        --platform linux)
+        --target "template" 
+        --platform "linux")
 }
 
-# Build the godot editor for the host platform
+# Build the macos template
+export def "main godot build template macos" [
+    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --arch: string,
+] {
+    let config = (main godot config --target "template" --release-mode $release_mode --arch $arch)
+    cd $config.godot_dir
+
+    if $arch == "universal" {
+        let config_x86_64 = (main godot config --target "template" --release-mode $release_mode --arch "x86_64")
+        let config_arm64 = (main godot config --target "template" --release-mode $release_mode --arch "arm64")
+
+        (main godot build
+            --release-mode $release_mode
+            --skip-cs-glue
+            --target "template"
+            --platform "macos"
+            --arch "x86_64")
+
+        (main godot build
+            --release-mode $release_mode
+            --skip-cs-glue
+            --target "template"
+            --platform "macos"
+            --arch "arm64")
+
+        (lipo 
+            -create 
+                $"bin/($config_x86_64.godot_bin_name)"
+                $"bin/($config_arm64.godot_bin_name)"
+            -output $"bin/($config.godot_bin_name)")
+    } else {
+        (main godot build
+            --release-mode $release_mode
+            --skip-cs-glue
+            --target "template"
+            --platform "macos"
+            --arch $arch)
+    }
+
+    return $config
+}
+
+# Build the macos app template.  This is the zip file that godot looks for and contains
+# the debug and release macos templates.
+export def "main godot build template macos app" [
+    --arch: string,
+    --skip-zip,
+] {
+    let config_debug = (main godot build template macos --arch $arch --release-mode "debug")
+    let config_release = (main godot build template macos --arch $arch --release-mode "release")
+    let godot_dir = $config_debug.godot_dir
+    rm -rf $"($godot_dir)/bin/macos_template.app"
+    cp -r $"($godot_dir)/misc/dist/macos_template.app" $"($godot_dir)/bin/"
+    mkdir $"($godot_dir)/bin/macos_template.app/Contents/MacOS"
+    mv $config_debug.godot_bin $"($godot_dir)/bin/macos_template.app/Contents/MacOS/godot_macos_debug.($arch)"
+    mv $config_release.godot_bin $"($godot_dir)/bin/macos_template.app/Contents/MacOS/godot_macos_release.($arch)"
+    chmod +x ...(glob $"($godot_dir)/bin/macos_template.app/Contents/MacOS/godot_macos*")
+
+    if not $skip_zip {
+        print $"zipping ($godot_dir)/bin/macos_template.app"
+        cd $"($godot_dir)/bin"
+        rm -f "macos.zip"
+        run-external zip "-q" "-9" "-r" "macos.zip" "macos_template.app"
+    }
+}
+
+# Build the windows template
 export def "main godot build template windows" [
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
 ] {
@@ -155,8 +268,8 @@ export def "main godot build template windows" [
     (main godot build 
         --release-mode $release_mode 
         --skip-cs-glue 
-        --target template 
-        --platform windows)
+        --target "template" 
+        --platform "windows")
 }
 
 export def "main android config" [] {
@@ -235,10 +348,10 @@ export def "main android key create" [
 export def --wrapped "main android adb run" [
     ...rest
 ] {
-    run-external --redirect-combine $"(main android config | get "cli_version_dir")/sdk/platform-tools/adb" ...$rest
+    run-external $"(main android config | get "cli_version_dir")/sdk/platform-tools/adb" ...$rest
 }
 
-# Build the godot editor for the host platform
+# Build the android template
 export def "main godot build template android" [
     # The architectures to build for. Defaults to: [ "arm32", "arm64", "x86_32", "x86_64" ]
     --archs: list<string> = [ "arm32", "arm64", "x86_32", "x86_64" ],
@@ -294,8 +407,8 @@ export def "main godot build template android" [
         (main godot build 
             --release-mode $release_mode 
             --skip-cs-glue 
-            --target template 
-            --platform android
+            --target "template" 
+            --platform "android"
             --arch $arch.item
             --extra-scons-args $extra_args)
     }
@@ -346,10 +459,17 @@ export def "main godot build" [
     }
 
     mut scons_args = ([
-        "module_mono_enabled=yes",
-        "precision=double",
+        $"module_mono_enabled=($env.GODOT_SRC_DOTNET_ENABLED)",
+        $"precision=($env.GODOT_SRC_PRECISION)",
         $"compiledb=($compiledb)"
     ] | append $extra_scons_args)
+
+    if ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX? | default "") != "" {
+        $scons_args = ($scons_args | append [
+            $"extra_suffix=($env.GODOT_SRC_GODOT_EXTRA_SUFFIX)", 
+            $"object_prefix=($env.GODOT_SRC_GODOT_EXTRA_SUFFIX)", 
+        ])
+    }
 
     let zig_arch = match $arch {
         "arm64" => "aarch64"
@@ -391,7 +511,10 @@ export def "main godot build" [
             $scons_args = ($scons_args | append [
                 "vulkan=yes"
             ])
-        }
+        },
+        "macos" => {
+            # TODO: Add support for building with zig
+        },
         _ => { 
             error make {
                 msg: $"unsupported platform: ($platform)"
@@ -445,7 +568,7 @@ export def "main godot build" [
     # NOTE: lto=full is breaking things for now so not passing it
     run-external scons ...$scons_args
 
-    if not $skip_cs_glue {
+    if $env.GODOT_SRC_DOTNET_ENABLED and not $skip_cs_glue {
         main godot clean dotnet
         # The directory where godot will be built out to
         mkdir $"($config.godot_dir)/bin"
@@ -456,11 +579,11 @@ export def "main godot build" [
             "--headless" 
             "--generate-mono-glue" 
             $"($config.godot_dir)/modules/mono/glue" 
-            "--precision=double")
+            $"--precision=($env.GODOT_SRC_PRECISION)")
         (run-external 
             $"($config.godot_dir)/modules/mono/build_scripts/build_assemblies.py"
             $"--godot-output-dir=($config.godot_dir)/bin"
-            "--precision=double"
+            $"--precision=($env.GODOT_SRC_PRECISION)"
             $"--godot-platform=($platform)")
     }
 }
@@ -497,6 +620,7 @@ export def "main godot export linux" [
         main godot build template linux --release-mode=$release_mode
     }
 
+    $env.GODOT_SRC_GODOT_PLATFORM = "linuxbsd"
     main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
 }
 
@@ -523,6 +647,7 @@ export def "main godot export windows" [
     nudep http file https://aka.ms/vs/17/release/vc_redist.x64.exe $vc_redist_path
 
     let dxil_path = $"($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc/bin/x64/dxil.dll"
+    $env.GODOT_SRC_GODOT_PLATFORM = "windows"
     main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
     let out_dir = ($"($out_file)/.." | path expand)
     cp $vc_redist_path $out_dir
@@ -551,6 +676,32 @@ export def --wrapped "main godot export android" [
     let android_config = main android config
     let jdk_config = main jdk config
 
+    $env.GODOT_SRC_GODOT_PLATFORM = "android"
+    (main godot export 
+        --project=$project 
+        --release-mode=$release_mode 
+        --out-file=$out_file 
+        --preset=$preset
+        ...$rest)
+}
+
+export def --wrapped "main godot export macos" [
+    --project: string # Path to the folder with a project.godot file that will be exported
+    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --skip-template
+    --preset: string = "macOS"
+    --arch: string = "universal"
+    --out-file: string
+    ...rest
+] {
+    use ../utils/utils.nu validate_arg
+    validate_arg $release_mode "--release-mode" ((metadata $release_mode).span) "release" "debug"
+
+    if not $skip_template {
+        main godot build template macos app --arch=$arch
+    }
+
+    $env.GODOT_SRC_GODOT_PLATFORM = "macos"
     (main godot export 
         --project=$project 
         --release-mode=$release_mode 
