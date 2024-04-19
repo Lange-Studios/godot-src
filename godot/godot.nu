@@ -620,7 +620,7 @@ export def "main godot export linux" [
         main godot build template linux --release-mode=$release_mode
     }
 
-    $env.GODOT_SRC_GODOT_PLATFORM = "linux"
+    $env.GODOT_SRC_GODOT_PLATFORM = "linuxbsd"
     main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
 }
 
@@ -677,6 +677,31 @@ export def --wrapped "main godot export android" [
     let jdk_config = main jdk config
 
     $env.GODOT_SRC_GODOT_PLATFORM = "android"
+    (main godot export 
+        --project=$project 
+        --release-mode=$release_mode 
+        --out-file=$out_file 
+        --preset=$preset
+        ...$rest)
+}
+
+export def --wrapped "main godot export macos" [
+    --project: string # Path to the folder with a project.godot file that will be exported
+    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --skip-template
+    --preset: string = "macOS"
+    --arch: string = "universal"
+    --out-file: string
+    ...rest
+] {
+    use ../utils/utils.nu validate_arg
+    validate_arg $release_mode "--release-mode" ((metadata $release_mode).span) "release" "debug"
+
+    if not $skip_template {
+        main godot build template macos app --arch=$arch
+    }
+
+    $env.GODOT_SRC_GODOT_PLATFORM = "macos"
     (main godot export 
         --project=$project 
         --release-mode=$release_mode 
