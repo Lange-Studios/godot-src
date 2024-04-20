@@ -790,6 +790,31 @@ export def --wrapped "main godot export macos" [
         ...$rest)
 }
 
+export def --wrapped "main godot export ios" [
+    --project: string # Path to the folder with a project.godot file that will be exported
+    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --skip-template
+    --preset: string = "iOS"
+    --arch: string = "arm64"
+    --out-file: string
+    ...rest
+] {
+    use ../utils/utils.nu validate_arg
+    validate_arg $release_mode "--release-mode" ((metadata $release_mode).span) "release" "debug"
+
+    if not $skip_template {
+        main godot build template ios app --arch=$arch
+    }
+
+    $env.GODOT_SRC_GODOT_PLATFORM = "ios"
+    (main godot export 
+        --project=$project 
+        --release-mode=$release_mode 
+        --out-file=$out_file 
+        --preset=$preset
+        ...$rest)
+}
+
 export def --wrapped "main cmake run" [
     cmd: string, 
     ...rest
