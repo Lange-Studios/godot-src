@@ -231,6 +231,73 @@ export def "main godot build template macos app" [
     }
 }
 
+# Build the macos template
+export def "main godot build template ios" [
+    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --arch: string,
+] {
+    let config = (main godot config --target "template" --release-mode $release_mode --arch $arch)
+    cd $config.godot_dir
+
+    if $arch == "universal" {
+        let config_x86_64 = (main godot config --target "template" --release-mode $release_mode --arch "x86_64")
+        let config_arm64 = (main godot config --target "template" --release-mode $release_mode --arch "arm64")
+
+        (main godot build
+            --release-mode $release_mode
+            --skip-cs-glue
+            --target "template"
+            --platform "ios"
+            --arch "x86_64")
+
+        (main godot build
+            --release-mode $release_mode
+            --skip-cs-glue
+            --target "template"
+            --platform "ios"
+            --arch "arm64")
+
+        # (lipo 
+        #     -create 
+        #         $"bin/($config_x86_64.godot_bin_name)"
+        #         $"bin/($config_arm64.godot_bin_name)"
+        #     -output $"bin/($config.godot_bin_name)")
+    } else {
+        (main godot build
+            --release-mode $release_mode
+            --skip-cs-glue
+            --target "template"
+            --platform "macos"
+            --arch $arch)
+    }
+
+    return $config
+}
+
+# Build the macos app template.  This is the zip file that godot looks for and contains
+# the debug and release macos templates.
+export def "main godot build template ios app" [
+    --arch: string,
+    --skip-zip,
+] {
+    let config_debug = (main godot build template macos --arch $arch --release-mode "debug")
+    let config_release = (main godot build template macos --arch $arch --release-mode "release")
+    let godot_dir = $config_debug.godot_dir
+    rm -rf $"($godot_dir)/bin/macos_template.app"
+    cp -r $"($godot_dir)/misc/dist/macos_template.app" $"($godot_dir)/bin/"
+    mkdir $"($godot_dir)/bin/macos_template.app/Contents/MacOS"
+    mv $config_debug.godot_bin $"($godot_dir)/bin/macos_template.app/Contents/MacOS/godot_macos_debug.($arch)"
+    mv $config_release.godot_bin $"($godot_dir)/bin/macos_template.app/Contents/MacOS/godot_macos_release.($arch)"
+    chmod +x ...(glob $"($godot_dir)/bin/macos_template.app/Contents/MacOS/godot_macos*")
+
+    if not $skip_zip {
+        print $"zipping ($godot_dir)/bin/macos_template.app"
+        cd $"($godot_dir)/bin"
+        rm -f "macos.zip"
+        run-external zip "-q" "-9" "-r" "macos.zip" "macos_template.app"
+    }
+}
+
 # Build the windows template
 export def "main godot build template windows" [
     --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
