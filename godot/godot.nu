@@ -288,6 +288,9 @@ export def "main godot build template ios app" [
     --arch: string,
     --skip-zip,
 ] {
+    use ../nudep/multen-vk-ios.nu
+
+    let multen_vk_config = (multen-vk-ios download)
     let config_debug = (main godot build template ios --arch $arch --release-mode "debug")
     let config_release = (main godot build template ios --arch $arch --release-mode "release")
     let godot_dir = $config_debug.godot_dir
@@ -295,13 +298,14 @@ export def "main godot build template ios app" [
     cp -r $"($godot_dir)/misc/dist/ios_xcode" $"($godot_dir)/bin/"
     mv $config_debug.godot_bin $"($godot_dir)/bin/ios_xcode/libgodot.ios.debug.xcframework/ios-arm64/libgodot.a"
     mv $config_release.godot_bin $"($godot_dir)/bin/ios_xcode/libgodot.ios.release.xcframework/ios-arm64/libgodot.a"
+    cp -r $"($multen_vk_config.version_dir)/MoltenVK/MoltenVK/static/MoltenVK.xcframework" $"($godot_dir)/bin/ios_xcode/"
 
-    # if not $skip_zip {
-    #     print $"zipping ($godot_dir)/bin/macos_template.app"
-    #     cd $"($godot_dir)/bin"
-    #     rm -f "macos.zip"
-    #     run-external zip "-q" "-9" "-r" "macos.zip" "macos_template.app"
-    # }
+    if not $skip_zip {
+        print $"zipping ($godot_dir)/bin/ios_xcode"
+        cd $"($godot_dir)/bin"
+        rm -f "ios.zip"
+        run-external zip "-q" "-9" "-r" "ios.zip" "ios_xcode"
+    }
 }
 
 # Build the windows template
