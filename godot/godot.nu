@@ -302,9 +302,9 @@ export def "main godot build template ios app" [
 
     if not $skip_zip {
         print $"zipping ($godot_dir)/bin/ios_xcode"
-        cd $"($godot_dir)/bin"
+        cd $"($godot_dir)/bin/ios_xcode"
         rm -f "ios.zip"
-        run-external zip "-q" "-9" "-r" "ios.zip" "ios_xcode"
+        run-external zip "-q" "-9" "-r" "ios.zip" "*"
     }
 }
 
