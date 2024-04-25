@@ -39,8 +39,8 @@ export def --wrapped run [
     }
 
     let file_extension = match $nu.os-info.name {
-        $OS_LINUX | $OS_MACOS => "tar.xz",
-        $OS_WINDOWS => "zip",
+        "linux" | "macos" => "tar.xz",
+        "windows" => "zip",
         _ => $"The host os '($nu.os-info.name)' is currently not supported",
     }
 
@@ -55,9 +55,13 @@ export def --wrapped run [
 
 # returns the path to the zig binary
 export def bin [] {
+    return $"(bin_dir)/zig";
+}
+
+export def bin_dir [] {
     let config = config
     let zig_version_dir = $"($config.zig_dir)/($config.version)"
-    return $"($zig_version_dir)/zig-($nu.os-info.name)-($nu.os-info.arch)-($config.version)/zig";
+    return $"($zig_version_dir)/zig-($nu.os-info.name)-($nu.os-info.arch)-($config.version)";
 }
 
 # Deletes zig and the directory where it is installed

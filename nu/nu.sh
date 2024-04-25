@@ -24,7 +24,7 @@ then
     export GODOT_SRC_NU_ZIP_EXT="tar.gz"
 elif [[ "$OSTYPE" == "cygwin" || "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]
 then
-    export GODOT_SRC_NU_PLATFORM=${GODOT_SRC_NU_PLATFORM:="windows-msvc"}
+    export GODOT_SRC_NU_PLATFORM=${GODOT_SRC_NU_PLATFORM:="pc-windows-msvc"}
     export GODOT_SRC_NU_ZIP_EXT="zip"
 else
     # TODO?  Free BSD?  Redux?  Chrome OS?  Idk could be fun :)

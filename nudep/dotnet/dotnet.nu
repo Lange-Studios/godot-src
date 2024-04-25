@@ -59,21 +59,42 @@ export def download [] {
     let config = config
 
     let install_script = match $nu.os-info.name {
-        "windows" => $"($env.GODOT_SRC_DIR)/nudep/dotnet/dotnet-install.ps1",
-        "linux" | "macos" => $"($env.GODOT_SRC_DIR)/nudep/dotnet/dotnet-install.sh",
+        "windows" => {
+            command: "powershell", 
+            args: [
+                $"($env.GODOT_SRC_DIR)/nudep/dotnet/dotnet-install.ps1" "-NoPath" "-Channel" $channel "-InstallDir" $config.dir
+            ] 
+        },
+        "linux" | "macos" => {
+            command: $"($env.GODOT_SRC_DIR)/nudep/dotnet/dotnet-install.sh",
+            args: [
+                "--no-path" "--channel" $channel "--install-dir" $config.dir
+            ]
+        },
         _ => {
             error make { msg: $"Unsupported os: ($nu.os-info.name)", }
         }
     }
 
-    run-external $install_script "--no-path" "--channel" $channel "--install-dir" $config.dir
+    print "Installing dotnet if missing. This may take a minute..."
+    print $"($install_script.command) ($install_script.args | str join ' ')"
+    run-external $install_script.command ...$install_script.args
 }
 
-# Execute a ninja command.  Will install ninja if it doesn't exist.
+# Execute a dotnet command.  Will install dotnet if it doesn't exist.
 export def --wrapped run [channel: string, ...rest] {
     let config = config
     download
     run-external $config.bin ...$rest
+}
+
+export def env-path [] {
+    if $env.GODOT_SRC_DOTNET_ENABLED and not $env.GODOT_SRC_DOTNET_USE_SYSTEM {
+        let dotnet_config = config
+        return ($env.PATH | prepend $dotnet_config.dir)
+    } else {
+        return $env.PATH
+    }
 }
 
 # Downloads dotnet and returns a string that can be assigned to the path environment variable
