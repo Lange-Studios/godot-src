@@ -635,10 +635,10 @@ export def "main godot build" [
                 $scons_args = ($scons_args | append $"import_env_vars=ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR,($config.import_env_vars)")
             }
         }
-    
-        if $config.custom_modules != null and $config.custom_modules != "" {
-            $scons_args = ($scons_args | append $"custom_modules=($config.custom_modules)")
-        }
+    }
+
+    if $config.custom_modules != null and not ($config.custom_modules | is-empty) {
+        $scons_args = ($scons_args | append $"custom_modules=($config.custom_modules)")
     }
 
     cd $config.godot_dir
