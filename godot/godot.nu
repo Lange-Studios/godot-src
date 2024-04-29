@@ -539,7 +539,7 @@ export def "main godot build" [
         $"module_mono_enabled=($env.GODOT_SRC_DOTNET_ENABLED)",
         $"precision=($env.GODOT_SRC_PRECISION)",
         $"compiledb=($compiledb)"
-    ] | append $extra_scons_args)
+    ] | append $extra_scons_args | append $env.GODOT_SRC_EXTRA_SCONS_ARGS?)
 
     if ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX? | default "") != "" {
         $scons_args = ($scons_args | append [
