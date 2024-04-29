@@ -96,7 +96,7 @@ Row = target platform
 | Windows Desktop | ✅         | ❌           | ❌       |
 | Mac             | ❌         | ❌           | ✅       |
 | Android         | ✅         | ❌           | ❌       |
-| iOS             | ❌         | ❌           | ❌       |
+| iOS             | ❌         | ❌           | ✅       |
 | Steam Deck      | ❌         | ❌           | ❌       |
 | Switch          | ❌         | ❌           | ❌       |
 | XBox            | ❌         | ❌           | ❌       |
