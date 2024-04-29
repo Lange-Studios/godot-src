@@ -781,8 +781,9 @@ export def --wrapped "main godot export android" [
         main godot build template android --release-mode=$release_mode
     }
 
-    let android_config = main android config
     let jdk_config = main jdk config
+
+    $env.PATH = ($env.PATH | append $jdk_config.bin_dir)
 
     $env.GODOT_SRC_GODOT_PLATFORM = "android"
     (main godot export 
