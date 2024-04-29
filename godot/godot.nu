@@ -28,11 +28,12 @@ export def "main godot config" [
     --target: string = "editor",
     --release-mode: string,
     --arch: string,
+    --platform: string
 ] {
     use ../nudep/core.nu *
     use utils.nu
     let godot_dir = ($env.GODOT_SRC_GODOT_DIR? | default $"($env.GODOT_SRC_DIR)/($DEP_DIR)/godot");
-    let godot_platform = utils godot-platform $nu.os-info.name
+    let godot_platform = utils godot-platform ($platform | default $nu.os-info.name)    
     let extra_suffix = ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX? | default "")
 
     let target_name = match $target {
@@ -41,7 +42,10 @@ export def "main godot config" [
     }
 
     mut godot_bin_name = [
-        "godot",
+        (match $godot_platform {
+            "ios" => "libgodot",
+            _ => "godot",
+        }),
         $godot_platform,
         $target_name,
     ]
@@ -62,12 +66,16 @@ export def "main godot config" [
         $godot_bin_name = ($godot_bin_name | append $env.GODOT_SRC_GODOT_EXTRA_SUFFIX)
     }
 
-    if $env.GODOT_SRC_DOTNET_ENABLED {
+    if $env.GODOT_SRC_DOTNET_ENABLED and $godot_platform != "ios" {
         $godot_bin_name = ($godot_bin_name | append "mono")
     }
 
     if $godot_platform == "windows" {
         $godot_bin_name = ($godot_bin_name | append "exe")
+    }
+
+    if $godot_platform == "ios" {
+        $godot_bin_name = ($godot_bin_name | append "a")
     }
 
     let godot_bin_name = ($godot_bin_name | str join ".")
@@ -242,6 +250,75 @@ export def "main godot build template macos app" [
         cd $"($godot_dir)/bin"
         rm -f "macos.zip"
         run-external zip "-q" "-9" "-r" "macos.zip" "macos_template.app"
+    }
+}
+
+# Build the macos template
+export def "main godot build template ios" [
+    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --arch: string,
+] {
+    let config = (main godot config --target "template" --release-mode $release_mode --arch $arch --platform "ios")
+    cd $config.godot_dir
+
+    if $arch == "universal" {
+        let config_x86_64 = (main godot config --target "template" --release-mode $release_mode --arch "x86_64" --platform "ios")
+        let config_arm64 = (main godot config --target "template" --release-mode $release_mode --arch "arm64" --platform "ios")
+
+        (main godot build
+            --release-mode $release_mode
+            --skip-cs-glue
+            --target "template"
+            --platform "ios"
+            --arch "x86_64")
+
+        (main godot build
+            --release-mode $release_mode
+            --skip-cs-glue
+            --target "template"
+            --platform "ios"
+            --arch "arm64")
+
+        # (lipo 
+        #     -create 
+        #         $"bin/($config_x86_64.godot_bin_name)"
+        #         $"bin/($config_arm64.godot_bin_name)"
+        #     -output $"bin/($config.godot_bin_name)")
+    } else {
+        (main godot build
+            --release-mode $release_mode
+            --skip-cs-glue
+            --target "template"
+            --platform "ios"
+            --arch $arch)
+    }
+
+    return $config
+}
+
+# Build the macos app template.  This is the zip file that godot looks for and contains
+# the debug and release macos templates.
+export def "main godot build template ios app" [
+    --arch: string,
+    --skip-zip,
+] {
+    use ../nudep/multen-vk-ios.nu
+
+    let multen_vk_config = (multen-vk-ios download)
+    let config_debug = (main godot build template ios --arch $arch --release-mode "debug")
+    let config_release = (main godot build template ios --arch $arch --release-mode "release")
+    let godot_dir = $config_debug.godot_dir
+    rm -rf $"($godot_dir)/bin/ios_xcode"
+    cp -r $"($godot_dir)/misc/dist/ios_xcode" $"($godot_dir)/bin/"
+    mv $config_debug.godot_bin $"($godot_dir)/bin/ios_xcode/libgodot.ios.debug.xcframework/ios-arm64/libgodot.a"
+    mv $config_release.godot_bin $"($godot_dir)/bin/ios_xcode/libgodot.ios.release.xcframework/ios-arm64/libgodot.a"
+    cp -r $"($multen_vk_config.version_dir)/MoltenVK/MoltenVK/static/MoltenVK.xcframework" $"($godot_dir)/bin/ios_xcode/"
+
+    if not $skip_zip {
+        print $"zipping ($godot_dir)/bin/ios_xcode"
+        cd $"($godot_dir)/bin/ios_xcode"
+        rm -f "ios.zip"
+        run-external zip "-q" "-9" "-r" "ios.zip" "*"
     }
 }
 
@@ -489,7 +566,7 @@ export def "main godot build" [
         $"module_mono_enabled=($env.GODOT_SRC_DOTNET_ENABLED)",
         $"precision=($env.GODOT_SRC_PRECISION)",
         $"compiledb=($compiledb)"
-    ] | append $extra_scons_args)
+    ] | append $extra_scons_args | append $env.GODOT_SRC_EXTRA_SCONS_ARGS?)
 
     if ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX? | default "") != "" {
         $scons_args = ($scons_args | append [
@@ -542,6 +619,9 @@ export def "main godot build" [
         "macos" => {
             # TODO: Add support for building with zig
         },
+        "ios" => {
+            # TODO: Add support for building with zig
+        },
         _ => { 
             error make {
                 msg: $"unsupported platform: ($platform)"
@@ -568,7 +648,7 @@ export def "main godot build" [
     }
 
     # Don't use zig to compile android.  Use Google's ndk
-    if $platform != "android" {
+    if $platform != "android" and $platform != "macos" and $platform != "ios" {
         # Set the global and local cache directories since scons requires it
         let zig_config = nudep zig config
         $env.ZIG_GLOBAL_CACHE_DIR = $zig_config.local_cache_dir
@@ -582,10 +662,10 @@ export def "main godot build" [
                 $scons_args = ($scons_args | append $"import_env_vars=ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR,($config.import_env_vars)")
             }
         }
-    
-        if $config.custom_modules != null and $config.custom_modules != "" {
-            $scons_args = ($scons_args | append $"custom_modules=($config.custom_modules)")
-        }
+    }
+
+    if $config.custom_modules != null and not ($config.custom_modules | is-empty) {
+        $scons_args = ($scons_args | append $"custom_modules=($config.custom_modules)")
     }
 
     cd $config.godot_dir
@@ -730,6 +810,31 @@ export def --wrapped "main godot export macos" [
     }
 
     $env.GODOT_SRC_GODOT_PLATFORM = "macos"
+    (main godot export 
+        --project=$project 
+        --release-mode=$release_mode 
+        --out-file=$out_file 
+        --preset=$preset
+        ...$rest)
+}
+
+export def --wrapped "main godot export ios" [
+    --project: string # Path to the folder with a project.godot file that will be exported
+    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --skip-template
+    --preset: string = "iOS"
+    --arch: string = "arm64"
+    --out-file: string
+    ...rest
+] {
+    use ../utils/utils.nu validate_arg
+    validate_arg $release_mode "--release-mode" ((metadata $release_mode).span) "release" "debug"
+
+    if not $skip_template {
+        main godot build template ios app --arch=$arch
+    }
+
+    $env.GODOT_SRC_GODOT_PLATFORM = "ios"
     (main godot export 
         --project=$project 
         --release-mode=$release_mode 
