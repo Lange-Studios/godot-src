@@ -4,6 +4,8 @@ use utils.nu
 $env.GODOT_SRC_DOTNET_ENABLED = ($env.GODOT_SRC_DOTNET_ENABLED? | default false)
 $env.GODOT_SRC_DOTNET_USE_SYSTEM = ($env.GODOT_SRC_DOTNET_USE_SYSTEM? | default false)
 $env.GODOT_SRC_PRECISION = ($env.GODOT_SRC_PRECISION? | default "single")
+$env.GODOT_SRC_DXC_VERSION = ($env.GODOT_SRC_DXC_VERSION? | default "v1.8.2403.1")
+$env.GODOT_SRC_DXC_DATE = ($env.GODOT_SRC_DXC_DATE? | default "dxc_2024_03_22")
 
 # Default godot's platform to the host machine unless specified otherwise and make sure dotnet
 # is set up for the host machine
@@ -272,8 +274,8 @@ export def "main godot build godot-nir" [] {
 
     let dxc_dir = $"($env.GODOT_SRC_DIR)/gitignore/dxc"
 
-    nudep http file $"https://github.com/microsoft/DirectXShaderCompiler/releases/download/($godot_src_dxc_version)/($godot_src_dxc_date).zip" $"($dxc_dir)/($godot_src_dxc_version)/($godot_src_dxc_date).zip"
-    nudep decompress $"($dxc_dir)/($godot_src_dxc_version)/($godot_src_dxc_date).zip" $"($dxc_dir)/($godot_src_dxc_version)/dxc"
+    nudep http file $"https://github.com/microsoft/DirectXShaderCompiler/releases/download/($env.GODOT_SRC_DXC_VERSION)/($env.GODOT_SRC_DXC_DATE).zip" $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/($env.GODOT_SRC_DXC_DATE).zip"
+    nudep decompress $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/($env.GODOT_SRC_DXC_DATE).zip" $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/dxc"
 }
 
 # Build the windows template
@@ -363,7 +365,7 @@ export def "main android key create" [
 export def --wrapped "main android adb run" [
     ...rest
 ] {
-    run-external $"(main android config | get "cli_version_dir")/sdk/platform-tools/adb" ...$rest
+    run-external $"(main android config | get "cli_version_dir")/platform-tools/adb" ...$rest
 }
 
 # Build the android template
@@ -394,23 +396,26 @@ export def "main godot build template android" [
     $env.PATH = ($env.PATH | prepend $jdk_config.bin_dir)
     $env.ANDROID_HOME = $"($android_config.cli_version_dir)"
 
-    if not ($"($env.ANDROID_HOME)/cmdline-tools/latest/bin/sdkmanager" | path exists) {
-        mkdir $"($env.ANDROID_HOME)/cmdline-tools/latest"
-        ls -f $"($env.ANDROID_HOME)/cmdline-tools" | 
-            where { |item| $item.name != $"($env.ANDROID_HOME)/cmdline-tools/latest" } | 
-            each { |item| mv $item.name $"($env.ANDROID_HOME)/cmdline-tools/latest" }
+    let sdk_manager_ext = match $nu.os-info.name {
+        "windows" => ".bat",
+        _ => ""
     }
 
-    (run-external $"($env.ANDROID_HOME)/cmdline-tools/latest/bin/sdkmanager" 
-        $"--sdk_root=($env.ANDROID_HOME)/sdk" 
-        "--licenses")
-    (run-external $"($env.ANDROID_HOME)/cmdline-tools/latest/bin/sdkmanager" 
-        $"--sdk_root=($env.ANDROID_HOME)/sdk" 
-        "platform-tools" 
-        "build-tools;30.0.3" 
-        "platforms;android-29" 
-        "cmdline-tools;latest" 
-        "cmake;3.10.2.4988404")
+    # Only run the installer if we haven't installed.
+    if not ($"($env.ANDROID_HOME)/cmdline-tools/latest/NOTICE.txt" | path exists) {
+        # Most online docs reccomend putting sdk_root in ANDROID_HOME/sdk but scons seems to want it in the
+        # same directory as ANDROID_HOME
+        (run-external $"($env.ANDROID_HOME)/cmdline-tools/bin/sdkmanager($sdk_manager_ext)"
+            $"--sdk_root=($env.ANDROID_HOME)" 
+            "--licenses")
+        (run-external $"($env.ANDROID_HOME)/cmdline-tools/bin/sdkmanager($sdk_manager_ext)"
+            $"--sdk_root=($env.ANDROID_HOME)"
+            "platform-tools" 
+            "build-tools;30.0.3" 
+            "platforms;android-29" 
+            "cmdline-tools;latest" 
+            "cmake;3.10.2.4988404")
+    }
 
     $archs | enumerate | each { |arch|
         # Always generate the apk last
