@@ -18,9 +18,7 @@ then
     tar -xvf "$GODOT_SRC_NU_DIR/../$zip" -C "$GODOT_SRC_NU_DIR/../"
 elif [[ "$OSTYPE" == "cygwin" || "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]
 then
-    # TODO
-    echo "ERROR: OS $OSTYPE is unsupported"
-    exit 1
+    unzip "$GODOT_SRC_NU_DIR/../$zip" -d "$GODOT_SRC_NU_DIR/"
 else
     # TODO?  Free BSD?  Redux?  Chrome OS?  Idk could be fun :)
     echo "ERROR: OS $OSTYPE is unsupported"

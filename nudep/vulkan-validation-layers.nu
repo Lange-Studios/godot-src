@@ -17,7 +17,7 @@ export def config [] {
 export def download [] {
     let config = config
     let vulkan_validation_version_dir = $"($config.dir)/($config.version)"
-    let zip_file = $"ninja-($config.version)-($nu.os-info.name).zip"
+    let zip_file = $"vulval-($config.version)-($nu.os-info.name).zip"
     let zip_path = $"($config.dir)/($zip_file)"
 
     nudep http file $"https://github.com/KhronosGroup/Vulkan-ValidationLayers/archive/refs/tags/sdk-($config.version).zip" $zip_path
@@ -35,21 +35,15 @@ export def "compile android" [
     }
 
     use android-cli.nu
-    use cmake.nu
     use jdk.nu
-    use ninja.nu
 
     download
     android-cli download
-    cmake download
     jdk download
-    ninja download
 
     let config = config
     let android_cli_config = android-cli config
-    let cmake_config = cmake config
     let jdk_config = jdk config
-    let ninja_config = ninja config
 
     $env.ANDROID_SDK_ROOT = $android_cli_config.cli_version_dir
     $env.ANDROID_NDK_HOME = $android_cli_config.ndk_dir
@@ -57,8 +51,6 @@ export def "compile android" [
     $env.PATH = ($env.PATH | prepend [
         $android_cli_config.build_tools_dir,
         $jdk_config.bin_dir,
-        $cmake_config.bin_dir,
-        $ninja_config.bin_dir,
     ])
 
     print "appt version:"

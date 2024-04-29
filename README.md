@@ -93,9 +93,9 @@ Row = target platform
 |                 | Linux Host | Windows Host | Mac Host |
 |-----------------|------------|--------------|----------|
 | Linux           | ✅         | ❌           | ❌       |
-| Windows Desktop | ✅         | ❌           | ❌       |
+| Windows Desktop | ✅         | ✅           | ❌       |
 | Mac             | ❌         | ❌           | ✅       |
-| Android         | ✅         | ❌           | ❌       |
+| Android         | ✅         | ✅           | ❌       |
 | iOS             | ❌         | ❌           | ✅       |
 | Steam Deck      | ❌         | ❌           | ❌       |
 | Switch          | ❌         | ❌           | ❌       |

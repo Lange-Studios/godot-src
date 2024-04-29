@@ -4,11 +4,25 @@ use utils.nu
 $env.GODOT_SRC_DOTNET_ENABLED = ($env.GODOT_SRC_DOTNET_ENABLED? | default false)
 $env.GODOT_SRC_DOTNET_USE_SYSTEM = ($env.GODOT_SRC_DOTNET_USE_SYSTEM? | default false)
 $env.GODOT_SRC_PRECISION = ($env.GODOT_SRC_PRECISION? | default "single")
+$env.GODOT_SRC_DXC_VERSION = ($env.GODOT_SRC_DXC_VERSION? | default "v1.8.2403.1")
+$env.GODOT_SRC_DXC_DATE = ($env.GODOT_SRC_DXC_DATE? | default "dxc_2024_03_22")
 
 # Default godot's platform to the host machine unless specified otherwise and make sure dotnet
 # is set up for the host machine
 $env.GODOT_SRC_GODOT_PLATFORM = ($env.GODOT_SRC_GODOT_PLATFORM? | default (utils godot-platform $nu.os-info.name))
-$env.PATH = (nudep dotnet init)
+$env.PATH = (nudep dotnet env-path)
+$env.PATH = (nudep pypy env-path)
+
+export def "install build deps" [] {
+    $env.PATH = (nudep dotnet init)
+
+    print "Setting up python and installing build tools..."
+    $env.PATH = (nudep pypy init)
+    pip3 install scons
+    pip3 install cmake
+    pip3 install ninja
+    pip3 install mako
+}
 
 export def "main godot config" [
     --target: string = "editor",
@@ -86,7 +100,7 @@ export def --wrapped "main godot run" [
     use ../nudep
 
     # Update the path with dotnet if we are using it
-    $env.PATH = (nudep dotnet init)
+    $env.PATH = (nudep dotnet env-path)
 
     let config = main godot config;
 
@@ -308,12 +322,12 @@ export def "main godot build template ios app" [
     }
 }
 
-# Build the windows template
-export def "main godot build template windows" [
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
-] {
+export def "main godot build godot-nir" [] {
     use ../nudep/core.nu *
     use ../nudep
+
+    let godot_src_dxc_version = ($env.GODOT_SRC_DXC_VERSION? | default "v1.8.2403.1")
+    let godot_src_dxc_date = ($env.GODOT_SRC_DXC_DATE? | default "dxc_2024_03_22")
 
     # require zig to be installed
     nudep zig run version
@@ -326,9 +340,7 @@ export def "main godot build template windows" [
 
     $env.MINGW_PREFIX = $"($env.GODOT_SRC_DIR)/zig/mingw"
 
-    pip3 install mako
-
-    ./update_mesa.sh
+    bash update_mesa.sh
 
     $env.PATH = ($env.PATH | prepend $"($env.MINGW_PREFIX)/bin")
     $env.PATH = ($env.PATH | prepend $zig_bin_dir) 
@@ -341,7 +353,12 @@ export def "main godot build template windows" [
 
     nudep http file $"https://github.com/microsoft/DirectXShaderCompiler/releases/download/($env.GODOT_SRC_DXC_VERSION)/($env.GODOT_SRC_DXC_DATE).zip" $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/($env.GODOT_SRC_DXC_DATE).zip"
     nudep decompress $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/($env.GODOT_SRC_DXC_DATE).zip" $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/dxc"
+}
 
+# Build the windows template
+export def "main godot build template windows" [
+    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+] {
     (main godot build 
         --release-mode $release_mode 
         --skip-cs-glue 
@@ -425,7 +442,7 @@ export def "main android key create" [
 export def --wrapped "main android adb run" [
     ...rest
 ] {
-    run-external $"(main android config | get "cli_version_dir")/sdk/platform-tools/adb" ...$rest
+    run-external $"(main android config | get "cli_version_dir")/platform-tools/adb" ...$rest
 }
 
 # Build the android template
@@ -456,23 +473,26 @@ export def "main godot build template android" [
     $env.PATH = ($env.PATH | prepend $jdk_config.bin_dir)
     $env.ANDROID_HOME = $"($android_config.cli_version_dir)"
 
-    if not ($"($env.ANDROID_HOME)/cmdline-tools/latest/bin/sdkmanager" | path exists) {
-        mkdir $"($env.ANDROID_HOME)/cmdline-tools/latest"
-        ls -f $"($env.ANDROID_HOME)/cmdline-tools" | 
-            where { |item| $item.name != $"($env.ANDROID_HOME)/cmdline-tools/latest" } | 
-            each { |item| mv $item.name $"($env.ANDROID_HOME)/cmdline-tools/latest" }
+    let sdk_manager_ext = match $nu.os-info.name {
+        "windows" => ".bat",
+        _ => ""
     }
 
-    (run-external $"($env.ANDROID_HOME)/cmdline-tools/latest/bin/sdkmanager" 
-        $"--sdk_root=($env.ANDROID_HOME)/sdk" 
-        "--licenses")
-    (run-external $"($env.ANDROID_HOME)/cmdline-tools/latest/bin/sdkmanager" 
-        $"--sdk_root=($env.ANDROID_HOME)/sdk" 
-        "platform-tools" 
-        "build-tools;30.0.3" 
-        "platforms;android-29" 
-        "cmdline-tools;latest" 
-        "cmake;3.10.2.4988404")
+    # Only run the installer if we haven't installed.
+    if not ($"($env.ANDROID_HOME)/cmdline-tools/latest/NOTICE.txt" | path exists) {
+        # Most online docs reccomend putting sdk_root in ANDROID_HOME/sdk but scons seems to want it in the
+        # same directory as ANDROID_HOME
+        (run-external $"($env.ANDROID_HOME)/cmdline-tools/bin/sdkmanager($sdk_manager_ext)"
+            $"--sdk_root=($env.ANDROID_HOME)" 
+            "--licenses")
+        (run-external $"($env.ANDROID_HOME)/cmdline-tools/bin/sdkmanager($sdk_manager_ext)"
+            $"--sdk_root=($env.ANDROID_HOME)"
+            "platform-tools" 
+            "build-tools;30.0.3" 
+            "platforms;android-29" 
+            "cmdline-tools;latest" 
+            "cmake;3.10.2.4988404")
+    }
 
     $archs | enumerate | each { |arch|
         # Always generate the apk last
@@ -528,6 +548,13 @@ export def "main godot build" [
     validate_arg $release_mode "--release-mode" ((metadata $release_mode).span) "release" "debug"
 
     let config = main godot config;
+
+    let skip_nir = ($env.GODOT_SRC_SKIP_NIR? | default "false")
+
+    # Godot nir is required for windows dx12
+    if $platform == "windows" and $"($skip_nir)" != "true" {
+        main godot build godot-nir
+    }
 
     if $config.auto_install_godot {
         if not ($"($config.godot_dir)/LICENSE.txt" | path exists) {
@@ -661,6 +688,7 @@ export def "main godot build" [
             $"($config.godot_dir)/modules/mono/glue" 
             $"--precision=($env.GODOT_SRC_PRECISION)")
         (run-external 
+            "python3"
             $"($config.godot_dir)/modules/mono/build_scripts/build_assemblies.py"
             $"--godot-output-dir=($config.godot_dir)/bin"
             $"--precision=($env.GODOT_SRC_PRECISION)"
@@ -753,8 +781,9 @@ export def --wrapped "main godot export android" [
         main godot build template android --release-mode=$release_mode
     }
 
-    let android_config = main android config
     let jdk_config = main jdk config
+
+    $env.PATH = ($env.PATH | append $jdk_config.bin_dir)
 
     $env.GODOT_SRC_GODOT_PLATFORM = "android"
     (main godot export 
@@ -813,19 +842,6 @@ export def --wrapped "main godot export ios" [
         --out-file=$out_file 
         --preset=$preset
         ...$rest)
-}
-
-export def --wrapped "main cmake run" [
-    cmd: string, 
-    ...rest
-] {
-    use ../nudep/cmake.nu
-    cmake run $cmd ...$rest
-}
-
-export def --wrapped "main ninja run" [...rest] {
-    use ../nudep/ninja.nu
-    ninja run ...$rest
 }
 
 export def "main vulkan compile validation android" [
