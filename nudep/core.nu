@@ -44,7 +44,10 @@ export def "nudep decompress" [
     file_path: string # The path to the file to unzip
     out_dir: string # The directory to extract the files to
 ] {
-    if ($file_path | str ends-with ".tar.xz") or ($file_path | str ends-with ".tar.gz") {
+    if (($file_path | str ends-with ".tar.xz") or 
+        ($file_path | str ends-with ".tar.gz") or 
+        ($file_path | str ends-with ".tar.bz2")
+    ) {
         nudep decompress tar $file_path $out_dir
     } else if ($file_path | str ends-with ".zip") {
         nudep decompress zip $file_path $out_dir

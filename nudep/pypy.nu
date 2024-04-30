@@ -21,11 +21,17 @@ export def config [] {
     let version_dir = $"($root_dir)/($version)/($pypy_version_os)"
     let zip = $"($root_dir)/pypy-($version).($zip_ext)"
 
+    let bin_dir = match $nu.os-info.name {
+        "windows" => $version_dir,
+        _ => $"($version_dir)/bin"
+    }
+
     return {
         version: $version,
         root_dir: $root_dir,
         unzip_dir: $unzip_dir
         version_dir: $version_dir,
+        bin_dir: $bin_dir,
         zip: $zip,
         url: $url,
     }
@@ -43,7 +49,7 @@ export def download [] {
 
 export def env-path [] {
     let config = config
-    return ($env.PATH | prepend $config.version_dir | prepend $"($config.version_dir)/Scripts")
+    return ($env.PATH | prepend $config.bin_dir | prepend $"($config.version_dir)/Scripts")
 }
 
 # Downloads pypy and returns a string that can be assigned to the path environment variable
@@ -53,8 +59,9 @@ export def init [] -> string {
     let config = config
     cd $config.version_dir
 
-    $env.PATH = env-path
+    $env.PATH = (env-path)
     run-external python3 "-m" "ensurepip"
+    run-external pip3 install "--upgrade" pip
 
     return $env.PATH
 }
