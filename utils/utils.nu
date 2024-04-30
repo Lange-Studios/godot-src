@@ -55,20 +55,22 @@ export def validate_arg_exists [
 
 # returns a list of gitignored folders and directories
 export def "git list ignored" [...dirs: string] {
-    $dirs | each { 
-        |dir| cd $dir | (run-external git 
+    $dirs | each { |dir| 
+        cd $dir | 
+        (run-external git 
             "status"
             .
             "--ignored"
-            "--short" o+e>|
-                complete |
-                get stdout |
-                str trim |
-                split row "\n" |
-                filter { |$el| $el | str starts-with "!!" } |
-                str substring 2..) | 
-                str trim | 
-                each { |$el| $env.PWD | path join $el }
+            o+e>|
+            complete |
+            get stdout |
+            str trim |
+            str substring ($in | str index-of "Ignored files:").. |
+            split row "\n" |
+            filter { |$el| $el | str starts-with "\t" } |
+            str trim) | 
+        str trim | 
+        each { |$el| $env.PWD | path join $el }
     } | flatten
 }
 
