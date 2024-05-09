@@ -62,6 +62,8 @@ export def "main godot config" [
         _ => $arch,
     }))
 
+    $godot_bin_name = ($godot_bin_name | append "llvm")
+
     if $env.GODOT_SRC_GODOT_EXTRA_SUFFIX? != null and ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX | str trim) != "" {
         $godot_bin_name = ($godot_bin_name | append $env.GODOT_SRC_GODOT_EXTRA_SUFFIX)
     }
@@ -563,22 +565,28 @@ export def "main godot build" [
     }
 
     mut scons_args = ([
-        $"module_mono_enabled=($env.GODOT_SRC_DOTNET_ENABLED)",
-        $"precision=($env.GODOT_SRC_PRECISION)",
+        $"module_mono_enabled=($env.GODOT_SRC_DOTNET_ENABLED)"
+        $"precision=($env.GODOT_SRC_PRECISION)"
         $"compiledb=($compiledb)"
+        "use_llvm=true"
+        "verbose=true"
     ] | append $extra_scons_args | append $env.GODOT_SRC_EXTRA_SCONS_ARGS?)
+
+    if $release_mode == "release" {
+        $scons_args = ($scons_args | append "lto=full")
+    }
 
     if ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX? | default "") != "" {
         $scons_args = ($scons_args | append [
-            $"extra_suffix=($env.GODOT_SRC_GODOT_EXTRA_SUFFIX)", 
-            $"object_prefix=($env.GODOT_SRC_GODOT_EXTRA_SUFFIX)", 
+            $"extra_suffix=($env.GODOT_SRC_GODOT_EXTRA_SUFFIX)"
+            $"object_prefix=($env.GODOT_SRC_GODOT_EXTRA_SUFFIX)"
         ])
     }
 
     let zig_arch = match $arch {
         "arm64" => "aarch64"
-        "arm32" | "x86_32" | "x86_64" => $arch,
-        null => "x86_64",
+        "arm32" | "x86_32" | "x86_64" => $arch
+        null => "x86_64"
         _ => {
             error make { msg: $"unsupported arch: ($arch)" }
         }
@@ -594,21 +602,22 @@ export def "main godot build" [
         "windows" => {
             # require zig to be installed
             nudep zig run version
-            $scons_args = ($scons_args | append [
-                $"CC=(nudep zig bin) cc -target x86_64-windows"
-                $"CXX=(nudep zig bin) c++ -target x86_64-windows"
-                "d3d12=yes",
+            $scons_args = ($scons_args | append (main zig compiler-vars "x86_64-windows-mingw") | append [
+                "d3d12=yes"
                 "vulkan=no"
-                $"dxc_path=($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc",
+                $"dxc_path=($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc"
                 $"mesa_libs=($env.GODOT_SRC_GODOT_NIR_DIR)"
+                "use_platform_tools=false"
             ])
         },
         "linux" => {
             # require zig to be installed
             nudep zig run version
-            $scons_args = ($scons_args | append [
-                $"CC=(nudep zig bin) cc -target x86_64-linux-gnu",
-                $"CXX=(nudep zig bin) c++ -target x86_64-linux-gnu"
+            $scons_args = ($scons_args | append (main zig compiler-vars "x86_64-linux-gnu") | append [
+                "linkflags=-static -stdlib=libc++" # use llvm's libc++ instead of gnu's libstdc++
+                "use_libatomic=false" # false here because we are letting zig handle it
+                "use_static_cpp=false" # false here because we are specifying static libc++ above
+                "platform_tools=false" # Tell godot's build system to not override our CC, CXX, etc.
             ])
         },
         "android" => {
@@ -851,4 +860,18 @@ export def "main vulkan compile validation android" [
     use ../nudep/vulkan-validation-layers.nu
     vulkan-validation-layers compile android $android_libs_path "arm64-v8a" --release-mode=$release_mode
     # vulkan-validation-layers compile android $android_libs_path "x86_64" --release-mode=$release_mode
+}
+
+export def "main zig compiler-vars" [target: string] -> string[] {
+    use ../nudep
+
+    return [
+        $"CC=(nudep zig bin) cc -target ($target)"
+        $"CXX=(nudep zig bin) c++ -target ($target)"
+        $"LINK=(nudep zig bin) c++ -target ($target)"
+        $"AS=(nudep zig bin) c++ -target ($target)"
+        $"AR=(nudep zig bin) ar"
+        $"RANLIB=(nudep zig bin) ranlib"
+        $"WINDRES=(nudep zig bin) rc"
+    ]
 }
