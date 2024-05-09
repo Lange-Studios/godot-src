@@ -27,7 +27,7 @@ export def "main install build deps" [] {
 
 export def "main godot config" [
     --target: string = "editor",
-    --release-mode: string,
+    --release-mode: string = "debug",
     --arch: string,
     --platform: string
 ] {
@@ -181,7 +181,7 @@ export def "main godot remove" [] {
 
 # Build the linux template
 export def "main godot build template linux" [
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
 ] {
     (main godot build 
         --release-mode $release_mode 
@@ -192,7 +192,7 @@ export def "main godot build template linux" [
 
 # Build the macos template
 export def "main godot build template macos" [
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --arch: string,
 ] {
     let config = (main godot config --target "template" --release-mode $release_mode --arch $arch)
@@ -259,7 +259,7 @@ export def "main godot build template macos app" [
 
 # Build the macos template
 export def "main godot build template ios" [
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --arch: string,
 ] {
     let config = (main godot config --target "template" --release-mode $release_mode --arch $arch --platform "ios")
@@ -361,7 +361,7 @@ export def "main godot build godot-nir" [] {
 
 # Build the windows template
 export def "main godot build template windows" [
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
 ] {
     (main godot build 
         --release-mode $release_mode 
@@ -453,7 +453,7 @@ export def --wrapped "main android adb run" [
 export def "main godot build template android" [
     # The architectures to build for. Defaults to: [ "arm32", "arm64", "x86_32", "x86_64" ]
     --archs: list<string> = [ "arm32", "arm64", "x86_32", "x86_64" ],
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
 ] {
     use ../utils/utils.nu
     use ../nudep/jdk.nu
@@ -537,7 +537,7 @@ export def "main godot" [] {
 
 # use --help to see commands and details
 export def "main godot build" [
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-cs-glue # Skips generating or rebuilding the csharp glue
     --platform: string # the platform to build for
     --compiledb, # Whether or not to compile the databse for ides
@@ -603,7 +603,7 @@ export def "main godot build" [
         "windows" => {
             # require zig to be installed
             nudep zig run version
-            $scons_args = ($scons_args | append (main zig compiler-vars "x86_64-windows-mingw") | append [
+            $scons_args = ($scons_args | append (main zig compiler-vars "x86_64-windows") | append [
                 "d3d12=yes"
                 "vulkan=no"
                 $"dxc_path=($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc"
@@ -718,7 +718,7 @@ export def "main godot clean" [] {
 
 export def --wrapped "main godot export" [
     --project: string # Path to the folder with a project.godot file that will be exported
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --out-file: string
     --preset: string
     ...rest
@@ -736,7 +736,7 @@ export def --wrapped "main godot export" [
 
 export def "main godot export linux" [
     --project: string # Path to the folder with a project.godot file that will be exported
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
     --preset: string = "Linux",
     --out-file: string
@@ -751,7 +751,7 @@ export def "main godot export linux" [
 
 export def "main godot export windows" [
     --project: string # Path to the folder with a project.godot file that will be exported
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
     --preset: string = "Windows Desktop"
     --out-file: string
@@ -788,7 +788,7 @@ export def "main godot export windows" [
 
 export def --wrapped "main godot export android" [
     --project: string # Path to the folder with a project.godot file that will be exported
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
     --preset: string = "Android"
     --out-file: string
@@ -813,7 +813,7 @@ export def --wrapped "main godot export android" [
 
 export def --wrapped "main godot export macos" [
     --project: string # Path to the folder with a project.godot file that will be exported
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
     --preset: string = "macOS"
     --arch: string = "universal"
@@ -838,7 +838,7 @@ export def --wrapped "main godot export macos" [
 
 export def --wrapped "main godot export ios" [
     --project: string # Path to the folder with a project.godot file that will be exported
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
     --preset: string = "iOS"
     --arch: string = "arm64"
@@ -863,7 +863,7 @@ export def --wrapped "main godot export ios" [
 
 export def "main vulkan compile validation android" [
     android_libs_path: string,
-    --release-mode: string,
+    --release-mode: string = "debug",
 ] {
     use ../nudep/vulkan-validation-layers.nu
     vulkan-validation-layers compile android $android_libs_path "arm64-v8a" --release-mode=$release_mode
