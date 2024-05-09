@@ -6,6 +6,7 @@ $env.GODOT_SRC_DOTNET_USE_SYSTEM = ($env.GODOT_SRC_DOTNET_USE_SYSTEM? | default 
 $env.GODOT_SRC_PRECISION = ($env.GODOT_SRC_PRECISION? | default "single")
 $env.GODOT_SRC_DXC_VERSION = ($env.GODOT_SRC_DXC_VERSION? | default "v1.8.2403.1")
 $env.GODOT_SRC_DXC_DATE = ($env.GODOT_SRC_DXC_DATE? | default "dxc_2024_03_22")
+$env.GODOT_SRC_GODOT_USE_LLVM = ($env.GODOT_SRC_GODOT_USE_LLVM? | default true)
 
 # Default godot's platform to the host machine unless specified otherwise and make sure dotnet
 # is set up for the host machine
@@ -62,7 +63,9 @@ export def "main godot config" [
         _ => $arch,
     }))
 
-    $godot_bin_name = ($godot_bin_name | append "llvm")
+    if $env.GODOT_SRC_GODOT_USE_LLVM and ($godot_platform == "windows" or $godot_platform == "linuxbsd") {
+        $godot_bin_name = ($godot_bin_name | append "llvm")
+    }
 
     if $env.GODOT_SRC_GODOT_EXTRA_SUFFIX? != null and ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX | str trim) != "" {
         $godot_bin_name = ($godot_bin_name | append $env.GODOT_SRC_GODOT_EXTRA_SUFFIX)
@@ -147,8 +150,7 @@ export def "main godot clean editor" [] {
     (run-external scons 
         "--clean"
         $"platform=($platform)"
-        "use_llvm=yes"
-        "linker=lld"
+        $"use_llvm=($env.GODOT_SRC_GODOT_USE_LLVM)"
         "debug_symbols=yes"
         $"module_mono_enabled=($env.GODOT_SRC_DOTNET_ENABLED)"
         "compiledb=yes"
@@ -568,8 +570,7 @@ export def "main godot build" [
         $"module_mono_enabled=($env.GODOT_SRC_DOTNET_ENABLED)"
         $"precision=($env.GODOT_SRC_PRECISION)"
         $"compiledb=($compiledb)"
-        "use_llvm=true"
-        "verbose=true"
+        $"use_llvm=($env.GODOT_SRC_GODOT_USE_LLVM)"
     ] | append $extra_scons_args | append $env.GODOT_SRC_EXTRA_SCONS_ARGS?)
 
     if $release_mode == "release" {
@@ -608,6 +609,9 @@ export def "main godot build" [
                 $"dxc_path=($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc"
                 $"mesa_libs=($env.GODOT_SRC_GODOT_NIR_DIR)"
                 "use_platform_tools=false"
+                # Set this to false because zig automatically builds llvm's cpp from source and links statically
+                # See: https://github.com/ziglang/zig/blob/master/src%2Flibcxx.zig
+                "use_static_cpp=false"
             ])
         },
         "linux" => {
@@ -618,6 +622,9 @@ export def "main godot build" [
                 "use_libatomic=false" # false here because we are letting zig handle it
                 "use_static_cpp=false" # false here because we are specifying static libc++ above
                 "platform_tools=false" # Tell godot's build system to not override our CC, CXX, etc.
+                # Set this to false because zig automatically builds llvm's cpp from source and links statically
+                # See: https://github.com/ziglang/zig/blob/master/src%2Flibcxx.zig
+                "use_static_cpp=false"
             ])
         },
         "android" => {
@@ -724,6 +731,7 @@ export def --wrapped "main godot export" [
     mkdir $out_dir
     
     main godot run --headless --path $project $"--export-($release_mode)" $preset ...$rest $out_file
+    print $"Successfully exported to: ($out_file)"
 }
 
 export def "main godot export linux" [
