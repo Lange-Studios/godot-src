@@ -1,12 +1,16 @@
 use ../nudep
 use utils.nu
 
+# Forcefully opt into building windows
+$env.GODOT_CAN_BUILD_WINDOWS = "true"
 $env.GODOT_SRC_DOTNET_ENABLED = ($env.GODOT_SRC_DOTNET_ENABLED? | default false)
 $env.GODOT_SRC_DOTNET_USE_SYSTEM = ($env.GODOT_SRC_DOTNET_USE_SYSTEM? | default false)
 $env.GODOT_SRC_PRECISION = ($env.GODOT_SRC_PRECISION? | default "single")
 $env.GODOT_SRC_DXC_VERSION = ($env.GODOT_SRC_DXC_VERSION? | default "v1.8.2403.1")
 $env.GODOT_SRC_DXC_DATE = ($env.GODOT_SRC_DXC_DATE? | default "dxc_2024_03_22")
 $env.GODOT_SRC_GODOT_USE_LLVM = ($env.GODOT_SRC_GODOT_USE_LLVM? | default true)
+# mingw or msvc
+$env.GODOT_SRC_WINDOWS_ABI = ($env.GODOT_SRC_WINDOWS_ABI? | default "mingw")
 
 # Default godot's platform to the host machine unless specified otherwise and make sure dotnet
 # is set up for the host machine
@@ -147,7 +151,7 @@ export def "main godot clean editor" [] {
     mkdir $"($config.godot_dir)/submodules/godot/bin/GodotSharp/Tools/nupkgs"
     let platform = utils godot-platform $nu.os-info.name
     cd $config.godot_dir
-    (run-external scons 
+    (run-external "scons" 
         "--clean"
         $"platform=($platform)"
         $"use_llvm=($env.GODOT_SRC_GODOT_USE_LLVM)"
@@ -330,6 +334,10 @@ export def "main godot build godot-nir" [] {
     use ../nudep/core.nu *
     use ../nudep
 
+    let zig_config = nudep zig config
+    $env.ZIG_GLOBAL_CACHE_DIR = $zig_config.local_cache_dir
+    $env.ZIG_LOCAL_CACHE_DIR = $zig_config.global_cache_dir
+
     let godot_src_dxc_version = ($env.GODOT_SRC_DXC_VERSION? | default "v1.8.2403.1")
     let godot_src_dxc_date = ($env.GODOT_SRC_DXC_DATE? | default "dxc_2024_03_22")
 
@@ -342,14 +350,22 @@ export def "main godot build godot-nir" [] {
     let prev_dir = $env.PWD
     cd $godot_nir_dir
 
-    $env.MINGW_PREFIX = $"($env.GODOT_SRC_DIR)/zig/mingw"
-
     bash update_mesa.sh
 
-    $env.PATH = ($env.PATH | prepend $"($env.MINGW_PREFIX)/bin")
     $env.PATH = ($env.PATH | prepend $zig_bin_dir) 
 
-    scons "platform=windows" "arch=x86_64" "use_llvm=yes"
+    let zig_target = match $env.GODOT_SRC_WINDOWS_ABI {
+        "mingw" => "x86_64-windows-gnu",
+        "msvc" => "x86_64-windows"
+    }
+
+    (run-external "scons" 
+        "platform=windows" 
+        "arch=x86_64" 
+        "use_llvm=true"
+        "platform_tools=false"
+        "import_env_vars=ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR"
+        ...(main zig compiler-vars $zig_target))
 
     cd $prev_dir
 
@@ -608,10 +624,12 @@ export def "main godot build" [
                 "vulkan=no"
                 $"dxc_path=($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc"
                 $"mesa_libs=($env.GODOT_SRC_GODOT_NIR_DIR)"
-                "use_platform_tools=false"
+                "platform_tools=false"
                 # Set this to false because zig automatically builds llvm's cpp from source and links statically
                 # See: https://github.com/ziglang/zig/blob/master/src%2Flibcxx.zig
-                "use_static_cpp=false"
+                "use_static_cpp=false",
+                "use_windres=false",
+                "validate_target_platform=false"
             ])
         },
         "linux" => {
@@ -689,7 +707,7 @@ export def "main godot build" [
     print $"running scons: scons ($scons_args | str join ' ')"
 
     # NOTE: lto=full is breaking things for now so not passing it
-    run-external scons ...$scons_args
+    run-external "scons" ...$scons_args
 
     if $env.GODOT_SRC_DOTNET_ENABLED and not $skip_cs_glue {
         main godot clean dotnet
@@ -757,33 +775,35 @@ export def "main godot export windows" [
     --out-file: string
 ] {
     use ../nudep/core.nu *
+    $env.GODOT_SRC_GODOT_PLATFORM = "windows"
 
     if not $skip_template {
         main godot build template windows --release-mode=$release_mode
     }
 
-    # Microsoft talks about how they intend for vc_redist to be used here: 
-    #   https://learn.microsoft.com/en-us/cpp/windows/deploying-visual-cpp-application-by-using-the-vcpp-redistributable-package?view=msvc-170
-    #   https://learn.microsoft.com/en-us/cpp/windows/determining-which-dlls-to-redistribute?view=msvc-170&source=recommendations
-    #   https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170
-    # And here's a helpful tutorial for using it without window popup prompts:
-    #   https://www.asawicki.info/news_1597_installing_visual_c_redistributable_package_from_command_line.html
-    let vc_redist_path = $"($env.GODOT_SRC_DIR)/gitignore/vc_redist/vc_redist.x64.exe"
-    nudep http file https://aka.ms/vs/17/release/vc_redist.x64.exe $vc_redist_path
-
-    let dxil_path = $"($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc/bin/x64/dxil.dll"
-    $env.GODOT_SRC_GODOT_PLATFORM = "windows"
     main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
     let out_dir = ($"($out_file)/.." | path expand)
-    cp $vc_redist_path $out_dir
+    let dxil_path = $"($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc/bin/x64/dxil.dll"
+    mkdir $out_dir
     cp $dxil_path $out_dir
-    let out_basename = ($out_file | path basename
-    )
-    # This is a temporary workaround until we figure out how to create an exe that installs dependencies silently before launching
-    $"@echo off
-    %~dp0\\vc_redist.x64.exe /install /quiet /norestart
-    start %~dp0\\($out_file | path basename) %" | 
-        save -f $"($out_dir)/start.bat"
+
+    if $env.GODOT_SRC_WINDOWS_ABI == "msvc" {
+        # Microsoft talks about how they intend for vc_redist to be used here: 
+        #   https://learn.microsoft.com/en-us/cpp/windows/deploying-visual-cpp-application-by-using-the-vcpp-redistributable-package?view=msvc-170
+        #   https://learn.microsoft.com/en-us/cpp/windows/determining-which-dlls-to-redistribute?view=msvc-170&source=recommendations
+        #   https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170
+        # And here's a helpful tutorial for using it without window popup prompts:
+        #   https://www.asawicki.info/news_1597_installing_visual_c_redistributable_package_from_command_line.html
+        let vc_redist_path = $"($env.GODOT_SRC_DIR)/gitignore/vc_redist/vc_redist.x64.exe"
+        nudep http file https://aka.ms/vs/17/release/vc_redist.x64.exe $vc_redist_path
+        cp $vc_redist_path $out_dir
+        
+        # This is a temporary workaround until we figure out how to create an exe that installs dependencies silently before launching
+        $"@echo off
+        %~dp0\\vc_redist.x64.exe /install /quiet /norestart
+        start %~dp0\\($out_file | path basename) %" | 
+            save -f $"($out_dir)/start.bat"
+    }
 }
 
 export def --wrapped "main godot export android" [
@@ -880,6 +900,6 @@ export def "main zig compiler-vars" [target: string] -> string[] {
         $"AS=(nudep zig bin) c++ -target ($target)"
         $"AR=(nudep zig bin) ar"
         $"RANLIB=(nudep zig bin) ranlib"
-        $"WINDRES=(nudep zig bin) rc"
+        $"RC=(nudep zig bin) rc"
     ]
 }
