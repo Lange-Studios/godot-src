@@ -459,7 +459,7 @@ export def "main android key create" [
         "-deststoretype" "pkcs12")
 }
 
-export def --wrapped "main android adb run" [
+export def --wrapped "main adb run" [
     ...rest
 ] {
     run-external $"(main android config | get "cli_version_dir")/platform-tools/adb" ...$rest
@@ -738,7 +738,7 @@ export def "main godot build" [
 export def "main godot clean" [] {
 }
 
-export def --wrapped "main godot export" [
+export def --wrapped "main export" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --out-file: string
@@ -756,7 +756,7 @@ export def --wrapped "main godot export" [
     print $"Successfully exported to: ($out_file)"
 }
 
-export def "main godot export linux" [
+export def "main export linux" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
@@ -768,10 +768,10 @@ export def "main godot export linux" [
     }
 
     $env.GODOT_SRC_GODOT_PLATFORM = "linuxbsd"
-    main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
+    main export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
 }
 
-export def "main godot export windows" [
+export def "main export windows" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
@@ -785,7 +785,7 @@ export def "main godot export windows" [
         main godot build template windows --release-mode=$release_mode
     }
 
-    main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
+    main export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
     let out_dir = ($"($out_file)/.." | path expand)
     let dxil_path = $"($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc/bin/x64/dxil.dll"
     mkdir $out_dir
@@ -810,7 +810,7 @@ export def "main godot export windows" [
     }
 }
 
-export def --wrapped "main godot export android" [
+export def --wrapped "main export android" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
@@ -827,7 +827,7 @@ export def --wrapped "main godot export android" [
     $env.PATH = ($env.PATH | append $jdk_config.bin_dir)
 
     $env.GODOT_SRC_GODOT_PLATFORM = "android"
-    (main godot export 
+    (main export 
         --project=$project 
         --release-mode=$release_mode 
         --out-file=$out_file 
@@ -835,7 +835,7 @@ export def --wrapped "main godot export android" [
         ...$rest)
 }
 
-export def --wrapped "main godot export macos" [
+export def --wrapped "main export macos" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
@@ -852,7 +852,7 @@ export def --wrapped "main godot export macos" [
     }
 
     $env.GODOT_SRC_GODOT_PLATFORM = "macos"
-    (main godot export 
+    (main export 
         --project=$project 
         --release-mode=$release_mode 
         --out-file=$out_file 
@@ -860,7 +860,7 @@ export def --wrapped "main godot export macos" [
         ...$rest)
 }
 
-export def --wrapped "main godot export ios" [
+export def --wrapped "main export ios" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
@@ -877,7 +877,7 @@ export def --wrapped "main godot export ios" [
     }
 
     $env.GODOT_SRC_GODOT_PLATFORM = "ios"
-    (main godot export 
+    (main export 
         --project=$project 
         --release-mode=$release_mode 
         --out-file=$out_file 
