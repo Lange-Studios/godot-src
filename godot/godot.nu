@@ -589,7 +589,8 @@ export def "main godot build" [
         $"use_llvm=($env.GODOT_SRC_GODOT_USE_LLVM)"
     ] | append $extra_scons_args | append $env.GODOT_SRC_EXTRA_SCONS_ARGS?)
 
-    if $release_mode == "release" {
+    # LTO doesn't work on windows for some reason.  Causes a lot of undefined symbols errors.
+    if $release_mode == "release" and $platform != "windows" {
         $scons_args = ($scons_args | append "lto=full")
     }
 
@@ -617,9 +618,13 @@ export def "main godot build" [
 
     match $platform {
         "windows" => {
+            let zig_target = match $env.GODOT_SRC_WINDOWS_ABI {
+                "mingw" => "x86_64-windows-gnu",
+                "msvc" => "x86_64-windows"
+            }
             # require zig to be installed
             nudep zig run version
-            $scons_args = ($scons_args | append (main zig compiler-vars "x86_64-windows") | append [
+            $scons_args = ($scons_args | append (main zig compiler-vars $zig_target) | append [
                 "d3d12=yes"
                 "vulkan=no"
                 $"dxc_path=($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc"
@@ -706,7 +711,6 @@ export def "main godot build" [
 
     print $"running scons: scons ($scons_args | str join ' ')"
 
-    # NOTE: lto=full is breaking things for now so not passing it
     run-external "scons" ...$scons_args
 
     if $env.GODOT_SRC_DOTNET_ENABLED and not $skip_cs_glue {
