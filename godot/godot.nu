@@ -587,6 +587,7 @@ export def "main godot build" [
         $"precision=($env.GODOT_SRC_PRECISION)"
         $"compiledb=($compiledb)"
         $"use_llvm=($env.GODOT_SRC_GODOT_USE_LLVM)"
+        "verbose=true"
     ] | append $extra_scons_args | append $env.GODOT_SRC_EXTRA_SCONS_ARGS?)
 
     # LTO doesn't work on windows for some reason.  Causes a lot of undefined symbols errors.
@@ -641,7 +642,6 @@ export def "main godot build" [
             # require zig to be installed
             nudep zig run version
             $scons_args = ($scons_args | append (main zig compiler-vars "x86_64-linux-gnu") | append [
-                "linkflags=-static -stdlib=libc++" # use llvm's libc++ instead of gnu's libstdc++
                 "use_libatomic=false" # false here because we are letting zig handle it
                 "use_static_cpp=false" # false here because we are specifying static libc++ above
                 "platform_tools=false" # Tell godot's build system to not override our CC, CXX, etc.

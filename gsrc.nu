@@ -65,7 +65,12 @@ export def --wrapped "main zig cc run" [
             ($arg == "-Wl,--disable-auto-image-base") or
             ($arg == "-lmsvcrt") or
             ($arg == "-lgcc") or
-            ($arg == "-l:libpthread.a")
+            ($arg == "-l:libpthread.a") or
+            ($arg == "-Wl,--allow-multiple-definition") or
+            ($arg == "--allow-multiple-definition") or
+            ($arg == "--no-relax") or
+            ($arg == "--gc-sections") or
+            ($arg == "--gc-keep-exported")
         ) {
             continue
         } else {
