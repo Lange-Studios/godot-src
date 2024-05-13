@@ -9,8 +9,8 @@ $env.GODOT_SRC_PRECISION = ($env.GODOT_SRC_PRECISION? | default "single")
 $env.GODOT_SRC_DXC_VERSION = ($env.GODOT_SRC_DXC_VERSION? | default "v1.8.2403.1")
 $env.GODOT_SRC_DXC_DATE = ($env.GODOT_SRC_DXC_DATE? | default "dxc_2024_03_22")
 $env.GODOT_SRC_GODOT_USE_LLVM = ($env.GODOT_SRC_GODOT_USE_LLVM? | default true)
-# mingw or msvc
-$env.GODOT_SRC_WINDOWS_ABI = ($env.GODOT_SRC_WINDOWS_ABI? | default "mingw")
+# gnu or msvc. Gnu uses the mingw toolchain.
+$env.GODOT_SRC_WINDOWS_ABI = ($env.GODOT_SRC_WINDOWS_ABI? | default "gnu")
 
 # Default godot's platform to the host machine unless specified otherwise and make sure dotnet
 # is set up for the host machine
@@ -355,7 +355,7 @@ export def "main godot build godot-nir" [] {
     $env.PATH = ($env.PATH | prepend $zig_bin_dir) 
 
     let zig_target = match $env.GODOT_SRC_WINDOWS_ABI {
-        "mingw" => "x86_64-windows-gnu",
+        "gnu" => "x86_64-windows-gnu",
         "msvc" => "x86_64-windows"
     }
 
@@ -620,7 +620,7 @@ export def "main godot build" [
     match $platform {
         "windows" => {
             let zig_target = match $env.GODOT_SRC_WINDOWS_ABI {
-                "mingw" => "x86_64-windows-gnu",
+                "gnu" => "x86_64-windows-gnu",
                 "msvc" => "x86_64-windows"
             }
             # require zig to be installed
