@@ -365,7 +365,7 @@ export def "main godot build godot-nir" [] {
         "use_llvm=true"
         "platform_tools=false"
         "import_env_vars=ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR"
-        ...(main zig compiler-vars $zig_target))
+        ...(main zig cxx scons-vars $zig_target))
 
     cd $prev_dir
 
@@ -625,7 +625,7 @@ export def "main godot build" [
             }
             # require zig to be installed
             nudep zig run version
-            $scons_args = ($scons_args | append (main zig compiler-vars $zig_target) | append [
+            $scons_args = ($scons_args | append (main zig cxx scons-vars $zig_target) | append [
                 "d3d12=yes"
                 "vulkan=no"
                 $"dxc_path=($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc"
@@ -641,7 +641,7 @@ export def "main godot build" [
         "linux" => {
             # require zig to be installed
             nudep zig run version
-            $scons_args = ($scons_args | append (main zig compiler-vars "x86_64-linux-gnu") | append [
+            $scons_args = ($scons_args | append (main zig cxx scons-vars "x86_64-linux-gnu") | append [
                 "use_libatomic=false" # false here because we are letting zig handle it
                 "use_static_cpp=false" # false here because we are specifying static libc++ above
                 "platform_tools=false" # Tell godot's build system to not override our CC, CXX, etc.
@@ -894,7 +894,8 @@ export def "main vulkan compile validation android" [
     # vulkan-validation-layers compile android $android_libs_path "x86_64" --release-mode=$release_mode
 }
 
-export def "main zig compiler-vars" [target: string] -> string[] {
+# Returns vars commonly accepted by scons. See more here under "User Guide": https://scons.org/documentation.html
+export def "main zig cxx scons-vars" [target: string] -> string[] {
     use ../nudep
 
     return [
@@ -906,4 +907,21 @@ export def "main zig compiler-vars" [target: string] -> string[] {
         $"RANLIB=(nudep zig bin) ranlib"
         $"RC=(nudep zig bin) rc"
     ]
+}
+
+# Returns common env vars to use the zig toolchain when compiling c++ code.
+export def "main zig cxx env-vars" [target: string] -> string[] {
+    use ../nudep
+
+    return {
+        CC: $"(nudep zig bin) cc -target ($target)"
+        CXX: $"(nudep zig bin) c++ -target ($target)"
+        # Some programs use LINK and others use LD so we set both to be safe
+        LD: $"(nudep zig bin) c++ -target ($target)"
+        LINK: $"(nudep zig bin) c++ -target ($target)"
+        AS: $"(nudep zig bin) c++ -target ($target)"
+        AR: $"(nudep zig bin) ar"
+        RANLIB: $"(nudep zig bin) ranlib"
+        RC: $"(nudep zig bin) rc"
+    }
 }
