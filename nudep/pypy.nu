@@ -62,6 +62,4 @@ export def init [] -> string {
     $env.PATH = (env-path)
     run-external python3 "-m" "ensurepip"
     run-external python3 "-m" pip install "--upgrade" pip
-
-    return $env.PATH
 }
