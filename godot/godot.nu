@@ -17,6 +17,7 @@ $env.GODOT_SRC_WINDOWS_ABI = ($env.GODOT_SRC_WINDOWS_ABI? | default "gnu")
 $env.GODOT_SRC_GODOT_PLATFORM = ($env.GODOT_SRC_GODOT_PLATFORM? | default (utils godot-platform $nu.os-info.name))
 $env.PATH = (nudep dotnet env-path)
 $env.PATH = (nudep pypy env-path)
+$env.PATH = ($env.PATH | append (nudep zig bin_dir))
 
 export def "main install build-tools" [] {
     print "Setting up dotnet..."
