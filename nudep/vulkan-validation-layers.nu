@@ -27,7 +27,7 @@ export def download [] {
 export def "compile android" [
     android_libs_path: string,
     arch: string,
-    --release-mode: string,
+    --release-mode: string = "debug",
 ] {
     # Validation build process will error if the build already happened
     if ($"($android_libs_path)/($release_mode)/($arch)/libVkLayer_khronos_validation.so" | path exists) {

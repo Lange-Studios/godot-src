@@ -1,32 +1,40 @@
 use ../nudep
 use utils.nu
 
+# Forcefully opt into building windows
+$env.GODOT_CAN_BUILD_WINDOWS = "true"
 $env.GODOT_SRC_DOTNET_ENABLED = ($env.GODOT_SRC_DOTNET_ENABLED? | default false)
 $env.GODOT_SRC_DOTNET_USE_SYSTEM = ($env.GODOT_SRC_DOTNET_USE_SYSTEM? | default false)
 $env.GODOT_SRC_PRECISION = ($env.GODOT_SRC_PRECISION? | default "single")
 $env.GODOT_SRC_DXC_VERSION = ($env.GODOT_SRC_DXC_VERSION? | default "v1.8.2403.1")
 $env.GODOT_SRC_DXC_DATE = ($env.GODOT_SRC_DXC_DATE? | default "dxc_2024_03_22")
+$env.GODOT_SRC_GODOT_USE_LLVM = ($env.GODOT_SRC_GODOT_USE_LLVM? | default true)
+# gnu or msvc. Gnu uses the mingw toolchain.
+$env.GODOT_SRC_WINDOWS_ABI = ($env.GODOT_SRC_WINDOWS_ABI? | default "gnu")
 
 # Default godot's platform to the host machine unless specified otherwise and make sure dotnet
 # is set up for the host machine
 $env.GODOT_SRC_GODOT_PLATFORM = ($env.GODOT_SRC_GODOT_PLATFORM? | default (utils godot-platform $nu.os-info.name))
 $env.PATH = (nudep dotnet env-path)
 $env.PATH = (nudep pypy env-path)
+$env.PATH = ($env.PATH | append (nudep zig bin_dir))
 
-export def "main install build deps" [] {
-    $env.PATH = (nudep dotnet init)
-
+export def "main install build-tools" [] {
+    print "Setting up dotnet..."
+    nudep dotnet init
+    print "Dotnet setup successfully!"
     print "Setting up python and installing build tools..."
-    $env.PATH = (nudep pypy init)
+    nudep pypy init
     run-external pip3 install "--upgrade" scons
     run-external pip3 install "--upgrade" cmake
     run-external pip3 install "--upgrade" ninja
     run-external pip3 install "--upgrade" mako
+    print "Python and build tools set up successfully!"
 }
 
 export def "main godot config" [
     --target: string = "editor",
-    --release-mode: string,
+    --release-mode: string = "debug",
     --arch: string,
     --platform: string
 ] {
@@ -61,6 +69,10 @@ export def "main godot config" [
         "aarch64" => "arm64",
         _ => $arch,
     }))
+
+    if $env.GODOT_SRC_GODOT_USE_LLVM and ($godot_platform == "windows" or $godot_platform == "linuxbsd") {
+        $godot_bin_name = ($godot_bin_name | append "llvm")
+    }
 
     if $env.GODOT_SRC_GODOT_EXTRA_SUFFIX? != null and ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX | str trim) != "" {
         $godot_bin_name = ($godot_bin_name | append $env.GODOT_SRC_GODOT_EXTRA_SUFFIX)
@@ -142,11 +154,10 @@ export def "main godot clean editor" [] {
     mkdir $"($config.godot_dir)/submodules/godot/bin/GodotSharp/Tools/nupkgs"
     let platform = utils godot-platform $nu.os-info.name
     cd $config.godot_dir
-    (run-external scons 
+    (run-external "scons" 
         "--clean"
         $"platform=($platform)"
-        "use_llvm=yes"
-        "linker=lld"
+        $"use_llvm=($env.GODOT_SRC_GODOT_USE_LLVM)"
         "debug_symbols=yes"
         $"module_mono_enabled=($env.GODOT_SRC_DOTNET_ENABLED)"
         "compiledb=yes"
@@ -177,7 +188,7 @@ export def "main godot remove" [] {
 
 # Build the linux template
 export def "main godot build template linux" [
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
 ] {
     (main godot build 
         --release-mode $release_mode 
@@ -188,7 +199,7 @@ export def "main godot build template linux" [
 
 # Build the macos template
 export def "main godot build template macos" [
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --arch: string,
 ] {
     let config = (main godot config --target "template" --release-mode $release_mode --arch $arch)
@@ -255,7 +266,7 @@ export def "main godot build template macos app" [
 
 # Build the macos template
 export def "main godot build template ios" [
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --arch: string,
 ] {
     let config = (main godot config --target "template" --release-mode $release_mode --arch $arch --platform "ios")
@@ -326,6 +337,10 @@ export def "main godot build godot-nir" [] {
     use ../nudep/core.nu *
     use ../nudep
 
+    let zig_config = nudep zig config
+    $env.ZIG_GLOBAL_CACHE_DIR = $zig_config.local_cache_dir
+    $env.ZIG_LOCAL_CACHE_DIR = $zig_config.global_cache_dir
+
     let godot_src_dxc_version = ($env.GODOT_SRC_DXC_VERSION? | default "v1.8.2403.1")
     let godot_src_dxc_date = ($env.GODOT_SRC_DXC_DATE? | default "dxc_2024_03_22")
 
@@ -338,14 +353,22 @@ export def "main godot build godot-nir" [] {
     let prev_dir = $env.PWD
     cd $godot_nir_dir
 
-    $env.MINGW_PREFIX = $"($env.GODOT_SRC_DIR)/zig/mingw"
-
     bash update_mesa.sh
 
-    $env.PATH = ($env.PATH | prepend $"($env.MINGW_PREFIX)/bin")
     $env.PATH = ($env.PATH | prepend $zig_bin_dir) 
 
-    scons "platform=windows" "arch=x86_64" "use_llvm=yes"
+    let zig_target = match $env.GODOT_SRC_WINDOWS_ABI {
+        "gnu" => "x86_64-windows-gnu",
+        "msvc" => "x86_64-windows"
+    }
+
+    (run-external "scons" 
+        "platform=windows" 
+        "arch=x86_64" 
+        "use_llvm=true"
+        "platform_tools=false"
+        "import_env_vars=ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR"
+        ...(main zig cxx scons-vars $zig_target))
 
     cd $prev_dir
 
@@ -357,7 +380,7 @@ export def "main godot build godot-nir" [] {
 
 # Build the windows template
 export def "main godot build template windows" [
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
 ] {
     (main godot build 
         --release-mode $release_mode 
@@ -439,7 +462,7 @@ export def "main android key create" [
         "-deststoretype" "pkcs12")
 }
 
-export def --wrapped "main android adb run" [
+export def --wrapped "main adb run" [
     ...rest
 ] {
     run-external $"(main android config | get "cli_version_dir")/platform-tools/adb" ...$rest
@@ -449,7 +472,7 @@ export def --wrapped "main android adb run" [
 export def "main godot build template android" [
     # The architectures to build for. Defaults to: [ "arm32", "arm64", "x86_32", "x86_64" ]
     --archs: list<string> = [ "arm32", "arm64", "x86_32", "x86_64" ],
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
 ] {
     use ../utils/utils.nu
     use ../nudep/jdk.nu
@@ -533,7 +556,7 @@ export def "main godot" [] {
 
 # use --help to see commands and details
 export def "main godot build" [
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-cs-glue # Skips generating or rebuilding the csharp glue
     --platform: string # the platform to build for
     --compiledb, # Whether or not to compile the databse for ides
@@ -563,22 +586,29 @@ export def "main godot build" [
     }
 
     mut scons_args = ([
-        $"module_mono_enabled=($env.GODOT_SRC_DOTNET_ENABLED)",
-        $"precision=($env.GODOT_SRC_PRECISION)",
+        $"module_mono_enabled=($env.GODOT_SRC_DOTNET_ENABLED)"
+        $"precision=($env.GODOT_SRC_PRECISION)"
         $"compiledb=($compiledb)"
+        $"use_llvm=($env.GODOT_SRC_GODOT_USE_LLVM)"
+        "verbose=true"
     ] | append $extra_scons_args | append $env.GODOT_SRC_EXTRA_SCONS_ARGS?)
+
+    # LTO doesn't work on windows for some reason.  Causes a lot of undefined symbols errors.
+    if $release_mode == "release" and $platform != "windows" {
+        $scons_args = ($scons_args | append "lto=full")
+    }
 
     if ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX? | default "") != "" {
         $scons_args = ($scons_args | append [
-            $"extra_suffix=($env.GODOT_SRC_GODOT_EXTRA_SUFFIX)", 
-            $"object_prefix=($env.GODOT_SRC_GODOT_EXTRA_SUFFIX)", 
+            $"extra_suffix=($env.GODOT_SRC_GODOT_EXTRA_SUFFIX)"
+            $"object_prefix=($env.GODOT_SRC_GODOT_EXTRA_SUFFIX)"
         ])
     }
 
     let zig_arch = match $arch {
         "arm64" => "aarch64"
-        "arm32" | "x86_32" | "x86_64" => $arch,
-        null => "x86_64",
+        "arm32" | "x86_32" | "x86_64" => $arch
+        null => "x86_64"
         _ => {
             error make { msg: $"unsupported arch: ($arch)" }
         }
@@ -592,23 +622,35 @@ export def "main godot build" [
 
     match $platform {
         "windows" => {
+            let zig_target = match $env.GODOT_SRC_WINDOWS_ABI {
+                "gnu" => "x86_64-windows-gnu",
+                "msvc" => "x86_64-windows"
+            }
             # require zig to be installed
             nudep zig run version
-            $scons_args = ($scons_args | append [
-                $"CC=(nudep zig bin) cc -target x86_64-windows"
-                $"CXX=(nudep zig bin) c++ -target x86_64-windows"
-                "d3d12=yes",
+            $scons_args = ($scons_args | append (main zig cxx scons-vars $zig_target) | append [
+                "d3d12=yes"
                 "vulkan=no"
-                $"dxc_path=($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc",
+                $"dxc_path=($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc"
                 $"mesa_libs=($env.GODOT_SRC_GODOT_NIR_DIR)"
+                "platform_tools=false"
+                # Set this to false because zig automatically builds llvm's cpp from source and links statically
+                # See: https://github.com/ziglang/zig/blob/master/src%2Flibcxx.zig
+                "use_static_cpp=false",
+                "use_windres=false",
+                "validate_target_platform=false"
             ])
         },
         "linux" => {
             # require zig to be installed
             nudep zig run version
-            $scons_args = ($scons_args | append [
-                $"CC=(nudep zig bin) cc -target x86_64-linux-gnu",
-                $"CXX=(nudep zig bin) c++ -target x86_64-linux-gnu"
+            $scons_args = ($scons_args | append (main zig cxx scons-vars "x86_64-linux-gnu") | append [
+                "use_libatomic=false" # false here because we are letting zig handle it
+                "use_static_cpp=false" # false here because we are specifying static libc++ above
+                "platform_tools=false" # Tell godot's build system to not override our CC, CXX, etc.
+                # Set this to false because zig automatically builds llvm's cpp from source and links statically
+                # See: https://github.com/ziglang/zig/blob/master/src%2Flibcxx.zig
+                "use_static_cpp=false"
             ])
         },
         "android" => {
@@ -672,8 +714,7 @@ export def "main godot build" [
 
     print $"running scons: scons ($scons_args | str join ' ')"
 
-    # NOTE: lto=full is breaking things for now so not passing it
-    run-external scons ...$scons_args
+    run-external "scons" ...$scons_args
 
     if $env.GODOT_SRC_DOTNET_ENABLED and not $skip_cs_glue {
         main godot clean dotnet
@@ -700,9 +741,9 @@ export def "main godot build" [
 export def "main godot clean" [] {
 }
 
-export def --wrapped "main godot export" [
+export def --wrapped "main export" [
     --project: string # Path to the folder with a project.godot file that will be exported
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --out-file: string
     --preset: string
     ...rest
@@ -715,11 +756,12 @@ export def --wrapped "main godot export" [
     mkdir $out_dir
     
     main godot run --headless --path $project $"--export-($release_mode)" $preset ...$rest $out_file
+    print $"Successfully exported to: ($out_file)"
 }
 
-export def "main godot export linux" [
+export def "main export linux" [
     --project: string # Path to the folder with a project.godot file that will be exported
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
     --preset: string = "Linux",
     --out-file: string
@@ -729,49 +771,51 @@ export def "main godot export linux" [
     }
 
     $env.GODOT_SRC_GODOT_PLATFORM = "linuxbsd"
-    main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
+    main export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
 }
 
-export def "main godot export windows" [
+export def "main export windows" [
     --project: string # Path to the folder with a project.godot file that will be exported
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
     --preset: string = "Windows Desktop"
     --out-file: string
 ] {
     use ../nudep/core.nu *
+    $env.GODOT_SRC_GODOT_PLATFORM = "windows"
 
     if not $skip_template {
         main godot build template windows --release-mode=$release_mode
     }
 
-    # Microsoft talks about how they intend for vc_redist to be used here: 
-    #   https://learn.microsoft.com/en-us/cpp/windows/deploying-visual-cpp-application-by-using-the-vcpp-redistributable-package?view=msvc-170
-    #   https://learn.microsoft.com/en-us/cpp/windows/determining-which-dlls-to-redistribute?view=msvc-170&source=recommendations
-    #   https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170
-    # And here's a helpful tutorial for using it without window popup prompts:
-    #   https://www.asawicki.info/news_1597_installing_visual_c_redistributable_package_from_command_line.html
-    let vc_redist_path = $"($env.GODOT_SRC_DIR)/gitignore/vc_redist/vc_redist.x64.exe"
-    nudep http file https://aka.ms/vs/17/release/vc_redist.x64.exe $vc_redist_path
-
-    let dxil_path = $"($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc/bin/x64/dxil.dll"
-    $env.GODOT_SRC_GODOT_PLATFORM = "windows"
-    main godot export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
+    main export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
     let out_dir = ($"($out_file)/.." | path expand)
-    cp $vc_redist_path $out_dir
+    let dxil_path = $"($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc/bin/x64/dxil.dll"
+    mkdir $out_dir
     cp $dxil_path $out_dir
-    let out_basename = ($out_file | path basename
-    )
-    # This is a temporary workaround until we figure out how to create an exe that installs dependencies silently before launching
-    $"@echo off
-    %~dp0\\vc_redist.x64.exe /install /quiet /norestart
-    start %~dp0\\($out_file | path basename) %" | 
-        save -f $"($out_dir)/start.bat"
+
+    if $env.GODOT_SRC_WINDOWS_ABI == "msvc" {
+        # Microsoft talks about how they intend for vc_redist to be used here: 
+        #   https://learn.microsoft.com/en-us/cpp/windows/deploying-visual-cpp-application-by-using-the-vcpp-redistributable-package?view=msvc-170
+        #   https://learn.microsoft.com/en-us/cpp/windows/determining-which-dlls-to-redistribute?view=msvc-170&source=recommendations
+        #   https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170
+        # And here's a helpful tutorial for using it without window popup prompts:
+        #   https://www.asawicki.info/news_1597_installing_visual_c_redistributable_package_from_command_line.html
+        let vc_redist_path = $"($env.GODOT_SRC_DIR)/gitignore/vc_redist/vc_redist.x64.exe"
+        nudep http file https://aka.ms/vs/17/release/vc_redist.x64.exe $vc_redist_path
+        cp $vc_redist_path $out_dir
+        
+        # This is a temporary workaround until we figure out how to create an exe that installs dependencies silently before launching
+        $"@echo off
+        %~dp0\\vc_redist.x64.exe /install /quiet /norestart
+        start %~dp0\\($out_file | path basename) %" | 
+            save -f $"($out_dir)/start.bat"
+    }
 }
 
-export def --wrapped "main godot export android" [
+export def --wrapped "main export android" [
     --project: string # Path to the folder with a project.godot file that will be exported
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
     --preset: string = "Android"
     --out-file: string
@@ -786,7 +830,7 @@ export def --wrapped "main godot export android" [
     $env.PATH = ($env.PATH | append $jdk_config.bin_dir)
 
     $env.GODOT_SRC_GODOT_PLATFORM = "android"
-    (main godot export 
+    (main export 
         --project=$project 
         --release-mode=$release_mode 
         --out-file=$out_file 
@@ -794,9 +838,9 @@ export def --wrapped "main godot export android" [
         ...$rest)
 }
 
-export def --wrapped "main godot export macos" [
+export def --wrapped "main export macos" [
     --project: string # Path to the folder with a project.godot file that will be exported
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
     --preset: string = "macOS"
     --arch: string = "universal"
@@ -811,7 +855,7 @@ export def --wrapped "main godot export macos" [
     }
 
     $env.GODOT_SRC_GODOT_PLATFORM = "macos"
-    (main godot export 
+    (main export 
         --project=$project 
         --release-mode=$release_mode 
         --out-file=$out_file 
@@ -819,9 +863,9 @@ export def --wrapped "main godot export macos" [
         ...$rest)
 }
 
-export def --wrapped "main godot export ios" [
+export def --wrapped "main export ios" [
     --project: string # Path to the folder with a project.godot file that will be exported
-    --release-mode: string, # How to optimize the build. Options: 'release' | 'debug'
+    --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
     --preset: string = "iOS"
     --arch: string = "arm64"
@@ -836,7 +880,7 @@ export def --wrapped "main godot export ios" [
     }
 
     $env.GODOT_SRC_GODOT_PLATFORM = "ios"
-    (main godot export 
+    (main export 
         --project=$project 
         --release-mode=$release_mode 
         --out-file=$out_file 
@@ -846,9 +890,41 @@ export def --wrapped "main godot export ios" [
 
 export def "main vulkan compile validation android" [
     android_libs_path: string,
-    --release-mode: string,
+    --release-mode: string = "debug",
 ] {
     use ../nudep/vulkan-validation-layers.nu
     vulkan-validation-layers compile android $android_libs_path "arm64-v8a" --release-mode=$release_mode
     # vulkan-validation-layers compile android $android_libs_path "x86_64" --release-mode=$release_mode
+}
+
+# Returns vars commonly accepted by scons. See more here under "User Guide": https://scons.org/documentation.html
+export def "main zig cxx scons-vars" [target: string] -> string[] {
+    use ../nudep
+
+    return [
+        $"CC=(nudep zig bin) cc -target ($target)"
+        $"CXX=(nudep zig bin) c++ -target ($target)"
+        $"LINK=(nudep zig bin) c++ -target ($target)"
+        $"AS=(nudep zig bin) c++ -target ($target)"
+        $"AR=(nudep zig bin) ar"
+        $"RANLIB=(nudep zig bin) ranlib"
+        $"RC=(nudep zig bin) rc"
+    ]
+}
+
+# Returns common env vars to use the zig toolchain when compiling c++ code.
+export def "main zig cxx env-vars" [target: string] -> string[] {
+    use ../nudep
+
+    return {
+        CC: $"(nudep zig bin) cc -target ($target)"
+        CXX: $"(nudep zig bin) c++ -target ($target)"
+        # Some programs use LINK and others use LD so we set both to be safe
+        LD: $"(nudep zig bin) c++ -target ($target)"
+        LINK: $"(nudep zig bin) c++ -target ($target)"
+        AS: $"(nudep zig bin) c++ -target ($target)"
+        AR: $"(nudep zig bin) ar"
+        RANLIB: $"(nudep zig bin) ranlib"
+        RC: $"(nudep zig bin) rc"
+    }
 }

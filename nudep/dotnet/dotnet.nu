@@ -103,9 +103,7 @@ export def env-path [] {
 export def init [] -> string {
     if $env.GODOT_SRC_DOTNET_ENABLED and not $env.GODOT_SRC_DOTNET_USE_SYSTEM {
         download
-        let dotnet_config = config
-        return ($env.PATH | prepend $dotnet_config.dir)
     } else {
-        return $env.PATH
+        print "using system installed dotnet"
     }
 }

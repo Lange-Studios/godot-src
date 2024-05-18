@@ -14,3 +14,5 @@ data_*/
 mono_crash.*.json
 
 gitignore/
+zig-cache/
+zig-out/
