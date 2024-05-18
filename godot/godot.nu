@@ -18,15 +18,17 @@ $env.GODOT_SRC_GODOT_PLATFORM = ($env.GODOT_SRC_GODOT_PLATFORM? | default (utils
 $env.PATH = (nudep dotnet env-path)
 $env.PATH = (nudep pypy env-path)
 
-export def "main install build deps" [] {
-    $env.PATH = (nudep dotnet init)
-
+export def "main install build-tools" [] {
+    print "Setting up dotnet..."
+    nudep dotnet init
+    print "Dotnet setup successfully!"
     print "Setting up python and installing build tools..."
-    $env.PATH = (nudep pypy init)
+    nudep pypy init
     run-external pip3 install "--upgrade" scons
     run-external pip3 install "--upgrade" cmake
     run-external pip3 install "--upgrade" ninja
     run-external pip3 install "--upgrade" mako
+    print "Python and build tools set up successfully!"
 }
 
 export def "main godot config" [
