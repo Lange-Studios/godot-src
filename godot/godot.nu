@@ -20,6 +20,8 @@ $env.PATH = (nudep pypy env-path)
 $env.PATH = ($env.PATH | append (nudep zig bin_dir))
 
 export def "main install build-tools" [] {
+    print "Setting up zig..."
+    nudep zig run version
     print "Setting up dotnet..."
     nudep dotnet init
     print "Dotnet setup successfully!"
@@ -344,18 +346,12 @@ export def "main godot build godot-nir" [] {
     let godot_src_dxc_version = ($env.GODOT_SRC_DXC_VERSION? | default "v1.8.2403.1")
     let godot_src_dxc_date = ($env.GODOT_SRC_DXC_DATE? | default "dxc_2024_03_22")
 
-    # require zig to be installed
-    nudep zig run version
-    let zig_bin_dir = ($"(nudep zig bin)/.." | path expand)
-
     let godot_nir_dir = $env.GODOT_SRC_GODOT_NIR_DIR
 
     let prev_dir = $env.PWD
     cd $godot_nir_dir
 
     bash update_mesa.sh
-
-    $env.PATH = ($env.PATH | prepend $zig_bin_dir) 
 
     let zig_target = match $env.GODOT_SRC_WINDOWS_ABI {
         "gnu" => "x86_64-windows-gnu",
@@ -626,8 +622,6 @@ export def "main godot build" [
                 "gnu" => "x86_64-windows-gnu",
                 "msvc" => "x86_64-windows"
             }
-            # require zig to be installed
-            nudep zig run version
             $scons_args = ($scons_args | append (main zig cxx scons-vars $zig_target) | append [
                 "d3d12=yes"
                 "vulkan=no"
@@ -642,8 +636,6 @@ export def "main godot build" [
             ])
         },
         "linux" => {
-            # require zig to be installed
-            nudep zig run version
             $scons_args = ($scons_args | append (main zig cxx scons-vars "x86_64-linux-gnu") | append [
                 "use_libatomic=false" # false here because we are letting zig handle it
                 "use_static_cpp=false" # false here because we are specifying static libc++ above
@@ -906,7 +898,7 @@ export def "main zig cxx scons-vars" [target: string] -> string[] {
     return [
         $"CC=($cxx_env_vars.CC)"
         $"CXX=($cxx_env_vars.CXX)"
-        $"LINK=($cxx_env_vars.LINK)"
+        $"LINK=($cxx_env_vars.LD)"
         $"AS=($cxx_env_vars.AS)"
         $"AR=($cxx_env_vars.AR)"
         $"RANLIB=($cxx_env_vars.RANLIB)"
@@ -923,11 +915,29 @@ export def "main zig cxx env-vars" [target: string] {
     let cxx = (main wrap-script zig-c++ $nu.current-exe $zig_filter_script $"(nudep zig bin)" c++ -target ($target))
 
     return {
+        CC: $"(nudep zig bin) cc -target ($target)"
+        CXX: $"(nudep zig bin) c++ -target ($target)"
+        # Some programs use LINK and others use LD so we set both to be safe
+        LD: $"(nudep zig bin) c++ -target ($target)"
+        AS: $"(nudep zig bin) c++ -target ($target)"
+        AR: $"(nudep zig bin) ar"
+        RANLIB: $"(nudep zig bin) ranlib"
+        RC: $"(nudep zig bin) rc"
+    }
+}
+
+# Returns common env vars to use the zig toolchain when compiling c++ code.
+export def "main zig cxx env-vars-wrapped" [target: string] {
+    use ../nudep
+
+    let zig_filter_script = $"($env.GODOT_SRC_DIR)/zig/zig-cc-cxx.nu"
+    let cc = (main wrap-script zig-cc $nu.current-exe $zig_filter_script $"(nudep zig bin)" cc -target ($target))
+    let cxx = (main wrap-script zig-c++ $nu.current-exe $zig_filter_script $"(nudep zig bin)" c++ -target ($target))
+
+    return {
         CC: $cc
         CXX: $cxx
-        # Some programs use LINK and others use LD so we set both to be safe
         LD: $cxx
-        LINK: $cxx
         AS: $cxx
         AR: (main wrap-script zig-ar $"(nudep zig bin)" ar)
         RANLIB: (main wrap-script zig-ranlib $"(nudep zig bin)" ranlib)
