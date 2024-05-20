@@ -1,1 +1,0 @@
-This is where commond llvm exe spoofs will be.  Currently only ran into a need for clang with rust's bindgen.  The other tools haven't needed to be spoofed.

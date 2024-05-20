@@ -901,30 +901,52 @@ export def "main vulkan compile validation android" [
 export def "main zig cxx scons-vars" [target: string] -> string[] {
     use ../nudep
 
+    let cxx_env_vars = main zig cxx env-vars $target
+
     return [
-        $"CC=(nudep zig bin) cc -target ($target)"
-        $"CXX=(nudep zig bin) c++ -target ($target)"
-        $"LINK=(nudep zig bin) c++ -target ($target)"
-        $"AS=(nudep zig bin) c++ -target ($target)"
-        $"AR=(nudep zig bin) ar"
-        $"RANLIB=(nudep zig bin) ranlib"
-        $"RC=(nudep zig bin) rc"
+        $"CC=($cxx_env_vars.CC)"
+        $"CXX=($cxx_env_vars.CXX)"
+        $"LINK=($cxx_env_vars.LINK)"
+        $"AS=($cxx_env_vars.AS)"
+        $"AR=($cxx_env_vars.AR)"
+        $"RANLIB=($cxx_env_vars.RANLIB)"
+        $"RC=($cxx_env_vars.RC)"
     ]
 }
 
 # Returns common env vars to use the zig toolchain when compiling c++ code.
-export def "main zig cxx env-vars" [target: string] -> string[] {
+export def "main zig cxx env-vars" [target: string] {
     use ../nudep
 
+    let zig_filter_script = $"($env.GODOT_SRC_DIR)/zig/zig-cc-cxx.nu"
+    let cc = (main wrap-script zig-cc $nu.current-exe $zig_filter_script $"(nudep zig bin)" cc -target ($target))
+    let cxx = (main wrap-script zig-c++ $nu.current-exe $zig_filter_script $"(nudep zig bin)" c++ -target ($target))
+
     return {
-        CC: $"(nudep zig bin) cc -target ($target)"
-        CXX: $"(nudep zig bin) c++ -target ($target)"
+        CC: $cc
+        CXX: $cxx
         # Some programs use LINK and others use LD so we set both to be safe
-        LD: $"(nudep zig bin) c++ -target ($target)"
-        LINK: $"(nudep zig bin) c++ -target ($target)"
-        AS: $"(nudep zig bin) c++ -target ($target)"
-        AR: $"(nudep zig bin) ar"
-        RANLIB: $"(nudep zig bin) ranlib"
-        RC: $"(nudep zig bin) rc"
+        LD: $cxx
+        LINK: $cxx
+        AS: $cxx
+        AR: (main wrap-script zig-ar $"(nudep zig bin)" ar)
+        RANLIB: (main wrap-script zig-ranlib $"(nudep zig bin)" ranlib)
+        RC: (main wrap-script zig-rc $"(nudep zig bin)" rc)
+    }
+}
+
+export def --wrapped "main wrap-script" [script_name: string, ...rest] -> string {
+    let script_dir = $"($env.GODOT_SRC_DIR)/gitignore/wrapper-scripts"
+    mkdir $script_dir
+
+    if $nu.os-info.name == "windows" {
+        let script_path = $"($script_dir)/($script_name).cmd"
+        $"@echo off\n($rest | each { |it| '"' + $it + '"' } | str join ' ') %*" | save -f $script_path
+        return $script_path
+    } else {
+        let script_path = $"($script_dir)/($script_name).sh"
+        $"#!/bin/bash\n($rest | each { |it| '"' + $it + '"' } | str join ' ') \"$@\"" | save -f $script_path
+        chmod +x $script_path
+        return $script_path
     }
 }
