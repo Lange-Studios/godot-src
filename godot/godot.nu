@@ -18,6 +18,7 @@ $env.GODOT_SRC_GODOT_PLATFORM = ($env.GODOT_SRC_GODOT_PLATFORM? | default (utils
 $env.PATH = (nudep dotnet env-path)
 $env.PATH = (nudep pypy env-path)
 $env.PATH = ($env.PATH | append (nudep zig bin_dir))
+$env.GODOT_SRC_ANDROID_VERSION = ($env.GODOT_SRC_ANDROID_VERSION? | default "24")
 
 export def "main install build-tools" [] {
     print "Setting up zig..."
@@ -464,6 +465,42 @@ export def --wrapped "main adb run" [
     run-external $"(main android config | get "cli_version_dir")/platform-tools/adb" ...$rest
 }
 
+export def "main android setup-cli" [] {
+    use ../utils/utils.nu
+    use ../nudep/jdk.nu
+    use ../nudep/android-cli.nu
+
+    jdk download
+    android-cli download
+
+    let android_config = main android config
+    let jdk_config = main jdk config
+    
+    $env.PATH = ($env.PATH | prepend $jdk_config.bin_dir)
+    $env.ANDROID_HOME = $"($android_config.cli_version_dir)"
+
+    let sdk_manager_ext = match $nu.os-info.name {
+        "windows" => ".bat",
+        _ => ""
+    }
+
+    # Only run the installer if we haven't installed.
+    if not ($"($env.ANDROID_HOME)/cmdline-tools/latest/NOTICE.txt" | path exists) {
+        # Most online docs reccomend putting sdk_root in ANDROID_HOME/sdk but scons seems to want it in the
+        # same directory as ANDROID_HOME
+        (run-external $"($env.ANDROID_HOME)/cmdline-tools/bin/sdkmanager($sdk_manager_ext)"
+            $"--sdk_root=($env.ANDROID_HOME)" 
+            "--licenses")
+        (run-external $"($env.ANDROID_HOME)/cmdline-tools/bin/sdkmanager($sdk_manager_ext)"
+            $"--sdk_root=($env.ANDROID_HOME)"
+            "platform-tools" 
+            "build-tools;30.0.3" 
+            "platforms;android-29" 
+            "cmdline-tools;latest" 
+            "cmake;3.10.2.4988404")
+    }
+}
+
 # Build the android template
 export def "main godot build template android" [
     # The architectures to build for. Defaults to: [ "arm32", "arm64", "x86_32", "x86_64" ]
@@ -492,27 +529,8 @@ export def "main godot build template android" [
     $env.PATH = ($env.PATH | prepend $jdk_config.bin_dir)
     $env.ANDROID_HOME = $"($android_config.cli_version_dir)"
 
-    let sdk_manager_ext = match $nu.os-info.name {
-        "windows" => ".bat",
-        _ => ""
-    }
-
-    # Only run the installer if we haven't installed.
-    if not ($"($env.ANDROID_HOME)/cmdline-tools/latest/NOTICE.txt" | path exists) {
-        # Most online docs reccomend putting sdk_root in ANDROID_HOME/sdk but scons seems to want it in the
-        # same directory as ANDROID_HOME
-        (run-external $"($env.ANDROID_HOME)/cmdline-tools/bin/sdkmanager($sdk_manager_ext)"
-            $"--sdk_root=($env.ANDROID_HOME)" 
-            "--licenses")
-        (run-external $"($env.ANDROID_HOME)/cmdline-tools/bin/sdkmanager($sdk_manager_ext)"
-            $"--sdk_root=($env.ANDROID_HOME)"
-            "platform-tools" 
-            "build-tools;30.0.3" 
-            "platforms;android-29" 
-            "cmdline-tools;latest" 
-            "cmake;3.10.2.4988404")
-    }
-
+    main android setup-cli
+    
     $archs | enumerate | each { |arch|
         # Always generate the apk last
         let extra_args = match ($arch.index == (($archs | length) - 1)) {
@@ -910,14 +928,9 @@ export def "main zig cxx scons-vars" [target: string] -> string[] {
 export def "main zig cxx env-vars" [target: string] {
     use ../nudep
 
-    let zig_filter_script = $"($env.GODOT_SRC_DIR)/zig/zig-cc-cxx.nu"
-    let cc = (main wrap-script zig-cc $nu.current-exe $zig_filter_script $"(nudep zig bin)" cc -target ($target))
-    let cxx = (main wrap-script zig-c++ $nu.current-exe $zig_filter_script $"(nudep zig bin)" c++ -target ($target))
-
     return {
         CC: $"(nudep zig bin) cc -target ($target)"
         CXX: $"(nudep zig bin) c++ -target ($target)"
-        # Some programs use LINK and others use LD so we set both to be safe
         LD: $"(nudep zig bin) c++ -target ($target)"
         AS: $"(nudep zig bin) c++ -target ($target)"
         AR: $"(nudep zig bin) ar"
@@ -942,6 +955,25 @@ export def "main zig cxx env-vars-wrapped" [target: string] {
         AR: (main wrap-script zig-ar $"(nudep zig bin)" ar)
         RANLIB: (main wrap-script zig-ranlib $"(nudep zig bin)" ranlib)
         RC: (main wrap-script zig-rc $"(nudep zig bin)" rc)
+    }
+}
+
+# Returns common env vars to use the zig toolchain when compiling c++ code.
+export def "main android cxx env-vars" [target: string] {
+    use ../nudep/android-cli.nu
+
+    let android_config = android-cli config
+    let llvm_dir = $"($android_config.ndk_dir)/toolchains/llvm/prebuilt/($nu.os-info.name)-($nu.os-info.arch)/bin"
+
+    return {
+        CC: $"($llvm_dir)/($target)($env.GODOT_SRC_ANDROID_VERSION)-clang"
+        CXX: $"($llvm_dir)/($target)($env.GODOT_SRC_ANDROID_VERSION)-clang++"
+        # Some programs use LINK and others use LD so we set both to be safe
+        LD: $"($llvm_dir)/lld"
+        AS: $"($llvm_dir)/llvm-as"
+        AR: $"($llvm_dir)/llvm-ar"
+        RANLIB: $"($llvm_dir)/llvm-ranlib"
+        RC: $"($llvm_dir)/llvm-rc"
     }
 }
 
