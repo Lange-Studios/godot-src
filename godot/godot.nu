@@ -965,12 +965,17 @@ export def "main android cxx env-vars" [target: string] {
     let android_config = android-cli config
     let llvm_dir = $"($android_config.ndk_dir)/toolchains/llvm/prebuilt/($nu.os-info.name)-($nu.os-info.arch)/bin"
 
+    let ext = match $nu.os-info.name {
+        "windows" => ".cmd",
+        _ => ""
+    }
+
     return {
-        CC: $"($llvm_dir)/($target)($env.GODOT_SRC_ANDROID_VERSION)-clang"
-        CXX: $"($llvm_dir)/($target)($env.GODOT_SRC_ANDROID_VERSION)-clang++"
+        CC: $"($llvm_dir)/($target)($env.GODOT_SRC_ANDROID_VERSION)-clang($ext)"
+        CXX: $"($llvm_dir)/($target)($env.GODOT_SRC_ANDROID_VERSION)-clang++($ext)"
         # Some programs use LINK and others use LD so we set both to be safe
         LD: $"($llvm_dir)/lld"
-        AS: $"($llvm_dir)/llvm-as"
+        AS: $"($llvm_dir)/($target)-as($ext)"
         AR: $"($llvm_dir)/llvm-ar"
         RANLIB: $"($llvm_dir)/llvm-ranlib"
         RC: $"($llvm_dir)/llvm-rc"
