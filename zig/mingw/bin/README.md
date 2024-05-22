@@ -1,1 +1,0 @@
-Godot's scons seems to be happy with thinking this is how mingw is structured

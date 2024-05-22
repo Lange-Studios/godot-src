@@ -1,1 +1,0 @@
-These are the executables that the rust compiler is looking for when compiling with --target=x86_64-pc-windows-gnu.

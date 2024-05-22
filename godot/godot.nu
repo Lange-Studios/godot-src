@@ -18,8 +18,11 @@ $env.GODOT_SRC_GODOT_PLATFORM = ($env.GODOT_SRC_GODOT_PLATFORM? | default (utils
 $env.PATH = (nudep dotnet env-path)
 $env.PATH = (nudep pypy env-path)
 $env.PATH = ($env.PATH | append (nudep zig bin_dir))
+$env.GODOT_SRC_ANDROID_VERSION = ($env.GODOT_SRC_ANDROID_VERSION? | default "24")
 
 export def "main install build-tools" [] {
+    print "Setting up zig..."
+    nudep zig run version
     print "Setting up dotnet..."
     nudep dotnet init
     print "Dotnet setup successfully!"
@@ -344,18 +347,12 @@ export def "main godot build godot-nir" [] {
     let godot_src_dxc_version = ($env.GODOT_SRC_DXC_VERSION? | default "v1.8.2403.1")
     let godot_src_dxc_date = ($env.GODOT_SRC_DXC_DATE? | default "dxc_2024_03_22")
 
-    # require zig to be installed
-    nudep zig run version
-    let zig_bin_dir = ($"(nudep zig bin)/.." | path expand)
-
     let godot_nir_dir = $env.GODOT_SRC_GODOT_NIR_DIR
 
     let prev_dir = $env.PWD
     cd $godot_nir_dir
 
     bash update_mesa.sh
-
-    $env.PATH = ($env.PATH | prepend $zig_bin_dir) 
 
     let zig_target = match $env.GODOT_SRC_WINDOWS_ABI {
         "gnu" => "x86_64-windows-gnu",
@@ -468,6 +465,42 @@ export def --wrapped "main adb run" [
     run-external $"(main android config | get "cli_version_dir")/platform-tools/adb" ...$rest
 }
 
+export def "main android setup-cli" [] {
+    use ../utils/utils.nu
+    use ../nudep/jdk.nu
+    use ../nudep/android-cli.nu
+
+    jdk download
+    android-cli download
+
+    let android_config = main android config
+    let jdk_config = main jdk config
+    
+    $env.PATH = ($env.PATH | prepend $jdk_config.bin_dir)
+    $env.ANDROID_HOME = $"($android_config.cli_version_dir)"
+
+    let sdk_manager_ext = match $nu.os-info.name {
+        "windows" => ".bat",
+        _ => ""
+    }
+
+    # Only run the installer if we haven't installed.
+    if not ($"($env.ANDROID_HOME)/cmdline-tools/latest/NOTICE.txt" | path exists) {
+        # Most online docs reccomend putting sdk_root in ANDROID_HOME/sdk but scons seems to want it in the
+        # same directory as ANDROID_HOME
+        (run-external $"($env.ANDROID_HOME)/cmdline-tools/bin/sdkmanager($sdk_manager_ext)"
+            $"--sdk_root=($env.ANDROID_HOME)" 
+            "--licenses")
+        (run-external $"($env.ANDROID_HOME)/cmdline-tools/bin/sdkmanager($sdk_manager_ext)"
+            $"--sdk_root=($env.ANDROID_HOME)"
+            "platform-tools" 
+            "build-tools;30.0.3" 
+            "platforms;android-29" 
+            "cmdline-tools;latest" 
+            "cmake;3.10.2.4988404")
+    }
+}
+
 # Build the android template
 export def "main godot build template android" [
     # The architectures to build for. Defaults to: [ "arm32", "arm64", "x86_32", "x86_64" ]
@@ -496,27 +529,8 @@ export def "main godot build template android" [
     $env.PATH = ($env.PATH | prepend $jdk_config.bin_dir)
     $env.ANDROID_HOME = $"($android_config.cli_version_dir)"
 
-    let sdk_manager_ext = match $nu.os-info.name {
-        "windows" => ".bat",
-        _ => ""
-    }
-
-    # Only run the installer if we haven't installed.
-    if not ($"($env.ANDROID_HOME)/cmdline-tools/latest/NOTICE.txt" | path exists) {
-        # Most online docs reccomend putting sdk_root in ANDROID_HOME/sdk but scons seems to want it in the
-        # same directory as ANDROID_HOME
-        (run-external $"($env.ANDROID_HOME)/cmdline-tools/bin/sdkmanager($sdk_manager_ext)"
-            $"--sdk_root=($env.ANDROID_HOME)" 
-            "--licenses")
-        (run-external $"($env.ANDROID_HOME)/cmdline-tools/bin/sdkmanager($sdk_manager_ext)"
-            $"--sdk_root=($env.ANDROID_HOME)"
-            "platform-tools" 
-            "build-tools;30.0.3" 
-            "platforms;android-29" 
-            "cmdline-tools;latest" 
-            "cmake;3.10.2.4988404")
-    }
-
+    main android setup-cli
+    
     $archs | enumerate | each { |arch|
         # Always generate the apk last
         let extra_args = match ($arch.index == (($archs | length) - 1)) {
@@ -626,8 +640,6 @@ export def "main godot build" [
                 "gnu" => "x86_64-windows-gnu",
                 "msvc" => "x86_64-windows"
             }
-            # require zig to be installed
-            nudep zig run version
             $scons_args = ($scons_args | append (main zig cxx scons-vars $zig_target) | append [
                 "d3d12=yes"
                 "vulkan=no"
@@ -642,8 +654,6 @@ export def "main godot build" [
             ])
         },
         "linux" => {
-            # require zig to be installed
-            nudep zig run version
             $scons_args = ($scons_args | append (main zig cxx scons-vars "x86_64-linux-gnu") | append [
                 "use_libatomic=false" # false here because we are letting zig handle it
                 "use_static_cpp=false" # false here because we are specifying static libc++ above
@@ -901,30 +911,89 @@ export def "main vulkan compile validation android" [
 export def "main zig cxx scons-vars" [target: string] -> string[] {
     use ../nudep
 
+    let cxx_env_vars = main zig cxx env-vars $target
+
     return [
-        $"CC=(nudep zig bin) cc -target ($target)"
-        $"CXX=(nudep zig bin) c++ -target ($target)"
-        $"LINK=(nudep zig bin) c++ -target ($target)"
-        $"AS=(nudep zig bin) c++ -target ($target)"
-        $"AR=(nudep zig bin) ar"
-        $"RANLIB=(nudep zig bin) ranlib"
-        $"RC=(nudep zig bin) rc"
+        $"CC=($cxx_env_vars.CC)"
+        $"CXX=($cxx_env_vars.CXX)"
+        $"LINK=($cxx_env_vars.LD)"
+        $"AS=($cxx_env_vars.AS)"
+        $"AR=($cxx_env_vars.AR)"
+        $"RANLIB=($cxx_env_vars.RANLIB)"
+        $"RC=($cxx_env_vars.RC)"
     ]
 }
 
 # Returns common env vars to use the zig toolchain when compiling c++ code.
-export def "main zig cxx env-vars" [target: string] -> string[] {
+export def "main zig cxx env-vars" [target: string] {
     use ../nudep
 
     return {
         CC: $"(nudep zig bin) cc -target ($target)"
         CXX: $"(nudep zig bin) c++ -target ($target)"
-        # Some programs use LINK and others use LD so we set both to be safe
         LD: $"(nudep zig bin) c++ -target ($target)"
-        LINK: $"(nudep zig bin) c++ -target ($target)"
         AS: $"(nudep zig bin) c++ -target ($target)"
         AR: $"(nudep zig bin) ar"
         RANLIB: $"(nudep zig bin) ranlib"
         RC: $"(nudep zig bin) rc"
+    }
+}
+
+# Returns common env vars to use the zig toolchain when compiling c++ code.
+export def "main zig cxx env-vars-wrapped" [target: string] {
+    use ../nudep
+
+    let zig_filter_script = $"($env.GODOT_SRC_DIR)/zig/zig-cc-cxx.nu"
+    let cc = (main wrap-script zig-cc $nu.current-exe $zig_filter_script $"(nudep zig bin)" cc -target ($target))
+    let cxx = (main wrap-script zig-c++ $nu.current-exe $zig_filter_script $"(nudep zig bin)" c++ -target ($target))
+
+    return {
+        CC: $cc
+        CXX: $cxx
+        LD: $cxx
+        AS: $cxx
+        AR: (main wrap-script zig-ar $"(nudep zig bin)" ar)
+        RANLIB: (main wrap-script zig-ranlib $"(nudep zig bin)" ranlib)
+        RC: (main wrap-script zig-rc $"(nudep zig bin)" rc)
+    }
+}
+
+# Returns common env vars to use the zig toolchain when compiling c++ code.
+export def "main android cxx env-vars" [target: string] {
+    use ../nudep/android-cli.nu
+
+    let android_config = android-cli config
+    let llvm_dir = $"($android_config.ndk_dir)/toolchains/llvm/prebuilt/($nu.os-info.name)-($nu.os-info.arch)/bin"
+
+    let ext = match $nu.os-info.name {
+        "windows" => ".cmd",
+        _ => ""
+    }
+
+    return {
+        CC: $"($llvm_dir)/($target)($env.GODOT_SRC_ANDROID_VERSION)-clang($ext)"
+        CXX: $"($llvm_dir)/($target)($env.GODOT_SRC_ANDROID_VERSION)-clang++($ext)"
+        # Some programs use LINK and others use LD so we set both to be safe
+        LD: $"($llvm_dir)/lld"
+        AS: $"($llvm_dir)/($target)-as($ext)"
+        AR: $"($llvm_dir)/llvm-ar"
+        RANLIB: $"($llvm_dir)/llvm-ranlib"
+        RC: $"($llvm_dir)/llvm-rc"
+    }
+}
+
+export def --wrapped "main wrap-script" [script_name: string, ...rest] -> string {
+    let script_dir = $"($env.GODOT_SRC_DIR)/gitignore/wrapper-scripts"
+    mkdir $script_dir
+
+    if $nu.os-info.name == "windows" {
+        let script_path = $"($script_dir)/($script_name).cmd"
+        $"@echo off\n($rest | each { |it| '"' + $it + '"' } | str join ' ') %*" | save -f $script_path
+        return $script_path
+    } else {
+        let script_path = $"($script_dir)/($script_name).sh"
+        $"#!/bin/bash\n($rest | each { |it| '"' + $it + '"' } | str join ' ') \"$@\"" | save -f $script_path
+        chmod +x $script_path
+        return $script_path
     }
 }
