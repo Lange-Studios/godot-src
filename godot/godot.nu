@@ -359,12 +359,15 @@ export def "main godot build godot-nir" [] {
         "msvc" => "x86_64-windows"
     }
 
+    load-env (main zig cxx env-vars-wrapped $zig_target)
+
     (run-external "scons" 
         "platform=windows" 
         "arch=x86_64" 
         "use_llvm=true"
         "platform_tools=false"
         "import_env_vars=ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR"
+        "use_mingw=true"
         ...(main zig cxx scons-vars $zig_target))
 
     cd $prev_dir
@@ -588,6 +591,8 @@ export def "main godot build" [
 
     let skip_nir = ($env.GODOT_SRC_SKIP_NIR? | default "false")
 
+    mut zig_target = ""
+
     # Godot nir is required for windows dx12
     if $platform == "windows" and $"($skip_nir)" != "true" {
         main godot build godot-nir
@@ -606,6 +611,10 @@ export def "main godot build" [
         $"use_llvm=($env.GODOT_SRC_GODOT_USE_LLVM)"
         "verbose=true"
     ] | append $extra_scons_args | append $env.GODOT_SRC_EXTRA_SCONS_ARGS?)
+
+    if $platform == "windows" {
+        $scons_args = ($scons_args | append "use_mingw=true")
+    }
 
     # LTO doesn't work on windows for some reason.  Causes a lot of undefined symbols errors.
     if $release_mode == "release" and $platform != "windows" {
@@ -636,7 +645,7 @@ export def "main godot build" [
 
     match $platform {
         "windows" => {
-            let zig_target = match $env.GODOT_SRC_WINDOWS_ABI {
+            $zig_target = match $env.GODOT_SRC_WINDOWS_ABI {
                 "gnu" => "x86_64-windows-gnu",
                 "msvc" => "x86_64-windows"
             }
@@ -654,6 +663,7 @@ export def "main godot build" [
             ])
         },
         "linux" => {
+            $zig_target = "x86_64-linux-gnu"
             $scons_args = ($scons_args | append (main zig cxx scons-vars "x86_64-linux-gnu") | append [
                 "use_libatomic=false" # false here because we are letting zig handle it
                 "use_static_cpp=false" # false here because we are specifying static libc++ above
@@ -723,6 +733,14 @@ export def "main godot build" [
     cd $config.godot_dir
 
     print $"running scons: scons ($scons_args | str join ' ')"
+
+    load-env (match ($zig_target != "") {
+        true => {
+            print "loading wrapped script to env"
+            (main zig cxx env-vars-wrapped $zig_target)
+        }
+        false => {}
+    })
 
     run-external "scons" ...$scons_args
 
@@ -911,7 +929,7 @@ export def "main vulkan compile validation android" [
 export def "main zig cxx scons-vars" [target: string] -> string[] {
     use ../nudep
 
-    let cxx_env_vars = main zig cxx env-vars $target
+    let cxx_env_vars = main zig cxx env-vars-wrapped $target
 
     return [
         $"CC=($cxx_env_vars.CC)"
@@ -929,13 +947,14 @@ export def "main zig cxx env-vars" [target: string] {
     use ../nudep
 
     return {
-        CC: $"(nudep zig bin) cc -target ($target)"
-        CXX: $"(nudep zig bin) c++ -target ($target)"
-        LD: $"(nudep zig bin) c++ -target ($target)"
-        AS: $"(nudep zig bin) c++ -target ($target)"
-        AR: $"(nudep zig bin) ar"
-        RANLIB: $"(nudep zig bin) ranlib"
-        RC: $"(nudep zig bin) rc"
+        PATH: ($env.PATH | append ($"(nudep zig bin)/.." | path expand))
+        CC: $"zig cc -target ($target)"
+        CXX: $"zig c++ -target ($target)"
+        LD: $"zig c++ -target ($target)"
+        AS: $"zig c++ -target ($target)"
+        AR: $"zig ar"
+        RANLIB: $"zig ranlib"
+        RC: $"zig rc"
     }
 }
 
@@ -946,15 +965,22 @@ export def "main zig cxx env-vars-wrapped" [target: string] {
     let zig_filter_script = $"($env.GODOT_SRC_DIR)/zig/zig-cc-cxx.nu"
     let cc = (main wrap-script zig-cc $nu.current-exe $zig_filter_script $"(nudep zig bin)" cc -target ($target))
     let cxx = (main wrap-script zig-c++ $nu.current-exe $zig_filter_script $"(nudep zig bin)" c++ -target ($target))
-
+    let ar = (main wrap-script zig-ar $"(nudep zig bin)" ar)
+    let ranlib = (main wrap-script zig-ranlib $"(nudep zig bin)" ranlib)
+    let rc = (main wrap-script zig-rc $"(nudep zig bin)" rc)
+    let wrapper_script_dir = ($"($cc)/.." | path expand)
+    
     return {
-        CC: $cc
-        CXX: $cxx
-        LD: $cxx
-        AS: $cxx
-        AR: (main wrap-script zig-ar $"(nudep zig bin)" ar)
-        RANLIB: (main wrap-script zig-ranlib $"(nudep zig bin)" ranlib)
-        RC: (main wrap-script zig-rc $"(nudep zig bin)" rc)
+        # Append the to the path where the scripts are stored
+        PATH: ($env.PATH | append ($wrapper_script_dir | path expand)),
+        ZIG_WRAPPER_SCRIPT_DIR: $wrapper_script_dir,
+        CC: ($cc | path basename)
+        CXX: ($cxx | path basename)
+        LD: ($cxx | path basename)
+        AS: ($cxx | path basename)
+        AR: ($ar | path basename)
+        RANLIB: ($ranlib | path basename)
+        RC: ($rc | path basename)
     }
 }
 
