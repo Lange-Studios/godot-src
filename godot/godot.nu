@@ -736,10 +736,9 @@ export def "main godot build" [
 
     load-env (match ($zig_target != "") {
         true => {
-            print "loading wrapped script to env"
             (main zig cxx env-vars-wrapped $zig_target)
         }
-        false => {}
+        false => {{}}
     })
 
     run-external "scons" ...$scons_args
