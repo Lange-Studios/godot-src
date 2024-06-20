@@ -7,8 +7,20 @@ export def --wrapped "main" [command_to_run ...rest] {
 def filter [args: list<string>] -> list<string> {
     mut filtered_args: list<string> = []
 
+    mut is_arg_val = false
+    mut do_prepend = false
+
+    # TODO: Pass -o as first arg
     for arg in $args {
-        let arg = if $arg == "-lgcc_s" {
+        let arg = if $is_arg_val {
+            $arg
+        } else if $arg == "-o" {
+            # zig requires -o to be the first arg / val combination after cc / cxx when linking
+            $filtered_args = ($filtered_args | insert 1 $arg)
+            $is_arg_val = true
+            $do_prepend = true
+            continue;
+        } else if $arg == "-lgcc_s" {
             "-lunwind"
         } else if ($arg | str starts-with "@") {
             let file_path = ($arg | str substring 1..)
@@ -24,6 +36,7 @@ def filter [args: list<string>] -> list<string> {
             $arg | str substring 4..
         } else if (
             ($arg | str contains "libcompiler_builtins-") or
+            ($arg | str contains "self-contained") or
             ($arg | str starts-with "--target=") or
             ($arg | str starts-with "-lwindows") or
             ($arg == "-Wl,--disable-auto-image-base") or
@@ -41,7 +54,18 @@ def filter [args: list<string>] -> list<string> {
             $arg
         }
 
-        $filtered_args = ($filtered_args | append $arg)
+        if $do_prepend {
+            $do_prepend = false
+            if $is_arg_val {
+                $is_arg_val = false
+                # The arg val will always come after the arg
+                $filtered_args = ($filtered_args | insert 2 $arg)
+            } else {
+                $filtered_args = ($filtered_args | insert 1 $arg)
+            }
+        } else {
+            $filtered_args = ($filtered_args | append $arg)
+        }
     }
 
     return $filtered_args
