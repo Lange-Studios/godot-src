@@ -361,6 +361,14 @@ export def "main godot build godot-nir" [] {
 
     load-env (main zig cxx env-vars-wrapped $zig_target)
 
+    let extra_args = match $nu.os-info.name {
+        "windows" => [
+            "ARCOM=${TEMPFILE('$AR rcs $TARGET $SOURCES','$ARCOMSTR')}",
+            "--ignore-errors"
+        ],
+        _ => []
+    }
+
     (run-external "scons" 
         "platform=windows" 
         "arch=x86_64" 
@@ -368,6 +376,7 @@ export def "main godot build godot-nir" [] {
         "platform_tools=false"
         "import_env_vars=ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR"
         "use_mingw=true"
+        ...$extra_args
         ...(main zig cxx scons-vars $zig_target))
 
     cd $prev_dir
@@ -610,10 +619,15 @@ export def "main godot build" [
         $"compiledb=($compiledb)"
         $"use_llvm=($env.GODOT_SRC_GODOT_USE_LLVM)"
         "verbose=true"
+        "--ignore-errors"
     ] | append $extra_scons_args | append $env.GODOT_SRC_EXTRA_SCONS_ARGS?)
 
     if $platform == "windows" {
-        $scons_args = ($scons_args | append "use_mingw=true")
+        $scons_args = ($scons_args | append [
+            "use_mingw=true",
+            "ARCOM=${TEMPFILE('$AR rcs $TARGET $SOURCES','$ARCOMSTR')}",
+            "--ignore-errors"
+        ])
     }
 
     # LTO doesn't work on windows for some reason.  Causes a lot of undefined symbols errors.
@@ -946,14 +960,13 @@ export def "main zig cxx env-vars" [target: string] {
     use ../nudep
 
     return {
-        PATH: ($env.PATH | append ($"(nudep zig bin)/.." | path expand))
-        CC: $"zig cc -target ($target)"
-        CXX: $"zig c++ -target ($target)"
-        LD: $"zig c++ -target ($target)"
-        AS: $"zig c++ -target ($target)"
-        AR: $"zig ar"
-        RANLIB: $"zig ranlib"
-        RC: $"zig rc"
+        CC: $"(nudep zig bin) cc -target ($target)"
+        CXX: $"(nudep zig bin) c++ -target ($target)"
+        LD: $"(nudep zig bin) c++ -target ($target)"
+        AS: $"(nudep zig bin) c++ -target ($target)"
+        AR: $"(nudep zig bin) ar"
+        RANLIB: $"(nudep zig bin) ranlib"
+        RC: $"(nudep zig bin) rc"
     }
 }
 
@@ -967,19 +980,15 @@ export def "main zig cxx env-vars-wrapped" [target: string] {
     let ar = (main wrap-script zig-ar $"(nudep zig bin)" ar)
     let ranlib = (main wrap-script zig-ranlib $"(nudep zig bin)" ranlib)
     let rc = (main wrap-script zig-rc $"(nudep zig bin)" rc)
-    let wrapper_script_dir = ($"($cc)/.." | path expand)
     
     return {
-        # Append the to the path where the scripts are stored
-        PATH: ($env.PATH | append ($wrapper_script_dir | path expand)),
-        ZIG_WRAPPER_SCRIPT_DIR: $wrapper_script_dir,
-        CC: ($cc | path basename)
-        CXX: ($cxx | path basename)
-        LD: ($cxx | path basename)
-        AS: ($cxx | path basename)
-        AR: ($ar | path basename)
-        RANLIB: ($ranlib | path basename)
-        RC: ($rc | path basename)
+        CC: $cc
+        CXX: $cxx
+        LD: $cxx
+        AS: $cxx
+        AR: $ar
+        RANLIB: $ranlib
+        RC: $rc
     }
 }
 
@@ -988,7 +997,10 @@ export def "main android cxx env-vars" [target: string] {
     use ../nudep/android-cli.nu
 
     let android_config = android-cli config
-    let llvm_dir = $"($android_config.ndk_dir)/toolchains/llvm/prebuilt/($nu.os-info.name)-($nu.os-info.arch)/bin"
+    let llvm_dir = (
+        $"($android_config.ndk_dir)/toolchains/llvm/prebuilt/($nu.os-info.name)-($nu.os-info.arch)/bin"
+        | str replace --all "\\" "/"
+    )
 
     let ext = match $nu.os-info.name {
         "windows" => ".cmd",
@@ -1014,11 +1026,11 @@ export def --wrapped "main wrap-script" [script_name: string, ...rest] -> string
     if $nu.os-info.name == "windows" {
         let script_path = $"($script_dir)/($script_name).cmd"
         $"@echo off\n($rest | each { |it| '"' + $it + '"' } | str join ' ') %*" | save -f $script_path
-        return $script_path
+        return ($script_path | str replace --all "\\" "/")
     } else {
         let script_path = $"($script_dir)/($script_name).sh"
         $"#!/bin/bash\n($rest | each { |it| '"' + $it + '"' } | str join ' ') \"$@\"" | save -f $script_path
         chmod +x $script_path
-        return $script_path
+        return ($script_path | str replace --all "\\" "/")
     }
 }

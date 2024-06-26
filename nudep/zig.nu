@@ -4,7 +4,7 @@ use platform_constants.nu *
 const GODOT_SRC_ZIG_VERSION_DEFAULT = "0.12.0-dev.3496+a2df84d0f"
 
 export def config [] {
-    let zig_dir = $"($env.GODOT_SRC_DIR)/($DEP_DIR)/zig";
+    let zig_dir = ($"($env.GODOT_SRC_DIR)/($DEP_DIR)/zig" | str replace --all "\\" "/")
 
     return {
         zig_dir: $zig_dir,
@@ -55,13 +55,13 @@ export def --wrapped run [
 
 # returns the path to the zig binary
 export def bin [] {
-    return $"(bin_dir)/zig";
+    return ($"(bin_dir)/zig" | str replace --all "\\" "/")
 }
 
 export def bin_dir [] {
     let config = config
     let zig_version_dir = $"($config.zig_dir)/($config.version)"
-    return $"($zig_version_dir)/zig-($nu.os-info.name)-($nu.os-info.arch)-($config.version)";
+    return ($"($zig_version_dir)/zig-($nu.os-info.name)-($nu.os-info.arch)-($config.version)" | str replace --all "\\" "/")
 }
 
 # Deletes zig and the directory where it is installed
