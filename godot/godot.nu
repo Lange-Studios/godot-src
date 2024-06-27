@@ -619,15 +619,17 @@ export def "main godot build" [
         $"compiledb=($compiledb)"
         $"use_llvm=($env.GODOT_SRC_GODOT_USE_LLVM)"
         "verbose=true"
-        "--ignore-errors"
     ] | append $extra_scons_args | append $env.GODOT_SRC_EXTRA_SCONS_ARGS?)
 
-    if $platform == "windows" {
+    if $nu.os-info.name == "windows" {
         $scons_args = ($scons_args | append [
-            "use_mingw=true",
             "ARCOM=${TEMPFILE('$AR rcs $TARGET $SOURCES','$ARCOMSTR')}",
             "--ignore-errors"
         ])
+    }
+
+    if $platform == "windows" {
+        $scons_args = ($scons_args | append "use_mingw=true")
     }
 
     # LTO doesn't work on windows for some reason.  Causes a lot of undefined symbols errors.
