@@ -134,6 +134,10 @@ export def --wrapped "main godot run" [
     if not ($config.godot_bin | path exists) {
         main godot build editor
     }
+
+    if $env.GODOT_SRC_DOTNET_ENABLED {
+        main godot build dotnet-glue --platform ($env.GODOT_SRC_GODOT_PLATFORM? | default $nu.os-info.name)
+    }
     
     print $"Running godot command: ($config.godot_bin) ($rest | str join ' ')"
     run-external $config.godot_bin ...$rest
@@ -149,7 +153,8 @@ export def "main godot build editor" [
         --skip-cs-glue=$skip_cs_glue 
         --compiledb 
         --platform $nu.os-info.name 
-        --extra-scons-args $extra_scons_args)
+        --extra-scons-args $extra_scons_args
+    )
 }
 
 export def "main godot clean editor" [] {
@@ -170,7 +175,8 @@ export def "main godot clean editor" [] {
         "debug_symbols=yes"
         $"module_mono_enabled=($env.GODOT_SRC_DOTNET_ENABLED)"
         "compiledb=yes"
-        $"precision=($env.GODOT_SRC_PRECISION)")
+        $"precision=($env.GODOT_SRC_PRECISION)"
+    )
 }
 
 export def "main godot clean all" [] {
@@ -203,7 +209,8 @@ export def "main godot build template linux" [
         --release-mode $release_mode 
         --skip-cs-glue
         --target "template" 
-        --platform "linux")
+        --platform "linux"
+    )
 }
 
 # Build the macos template
@@ -223,27 +230,31 @@ export def "main godot build template macos" [
             --skip-cs-glue
             --target "template"
             --platform "macos"
-            --arch "x86_64")
+            --arch "x86_64"
+            )
 
         (main godot build
             --release-mode $release_mode
             --skip-cs-glue
             --target "template"
             --platform "macos"
-            --arch "arm64")
+            --arch "arm64"
+        )
 
         (lipo 
             -create 
                 $"bin/($config_x86_64.godot_bin_name)"
                 $"bin/($config_arm64.godot_bin_name)"
-            -output $"bin/($config.godot_bin_name)")
+            -output $"bin/($config.godot_bin_name)"
+        )
     } else {
         (main godot build
             --release-mode $release_mode
             --skip-cs-glue
             --target "template"
             --platform "macos"
-            --arch $arch)
+            --arch $arch
+        )
     }
 
     return $config
@@ -290,14 +301,16 @@ export def "main godot build template ios" [
             --skip-cs-glue
             --target "template"
             --platform "ios"
-            --arch "x86_64")
+            --arch "x86_64"
+        )
 
         (main godot build
             --release-mode $release_mode
             --skip-cs-glue
             --target "template"
             --platform "ios"
-            --arch "arm64")
+            --arch "arm64"
+        )
 
         # (lipo 
         #     -create 
@@ -310,7 +323,8 @@ export def "main godot build template ios" [
             --skip-cs-glue
             --target "template"
             --platform "ios"
-            --arch $arch)
+            --arch $arch
+        )
     }
 
     return $config
@@ -763,23 +777,51 @@ export def "main godot build" [
     run-external "scons" ...$scons_args
 
     if $env.GODOT_SRC_DOTNET_ENABLED and not $skip_cs_glue {
+        main godot build dotnet-glue --force --platform $platform
+    }
+}
+
+export def "main godot build dotnet-glue" [
+    --platform: string = $nu.os-info.name
+    --force
+] {
+    let platform = utils godot-platform $platform
+    mut do_build = $force
+
+    let godot_config = main godot config
+    let csharp_build_info = $"($godot_config.godot_bin_dir)/GodotSharp/info.txt"
+    let expected_info_contents = $"($godot_config.godot_bin),($env.GODOT_SRC_PRECISION),($platform)"
+
+    if not $do_build {
+        $do_build = (not ($csharp_build_info | path exists))
+    }
+
+    if not $do_build {
+        $do_build = (open $csharp_build_info | $in != $expected_info_contents)
+    }
+    
+    if $do_build {
         main godot clean dotnet
         # The directory where godot will be built out to
-        mkdir $"($config.godot_dir)/bin"
+        mkdir $godot_config.godot_bin_dir
         # This folder needs to exist in order for the nuget packages to be output here
-        mkdir $"($config.godot_dir)/bin/GodotSharp/Tools/nupkgs"
+        mkdir $"($godot_config.godot_bin_dir)/GodotSharp/Tools/nupkgs"
         (run-external 
-            $config.godot_bin 
+            $godot_config.godot_bin 
             "--headless" 
             "--generate-mono-glue" 
-            $"($config.godot_dir)/modules/mono/glue" 
-            $"--precision=($env.GODOT_SRC_PRECISION)")
+            $"($godot_config.godot_dir)/modules/mono/glue" 
+            $"--precision=($env.GODOT_SRC_PRECISION)"
+        )
         (run-external 
             "python3"
-            $"($config.godot_dir)/modules/mono/build_scripts/build_assemblies.py"
-            $"--godot-output-dir=($config.godot_dir)/bin"
+            $"($godot_config.godot_dir)/modules/mono/build_scripts/build_assemblies.py"
+            $"--godot-output-dir=($godot_config.godot_bin_dir)"
             $"--precision=($env.GODOT_SRC_PRECISION)"
-            $"--godot-platform=($platform)")
+            $"--godot-platform=($platform)"
+        )
+
+        $expected_info_contents | save -f $csharp_build_info
     }
 }
 
