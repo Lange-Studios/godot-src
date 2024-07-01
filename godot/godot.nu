@@ -19,6 +19,10 @@ $env.PATH = (nudep dotnet env-path)
 $env.PATH = (nudep pypy env-path)
 $env.PATH = ($env.PATH | append (nudep zig bin_dir))
 $env.GODOT_SRC_ANDROID_VERSION = ($env.GODOT_SRC_ANDROID_VERSION? | default "24")
+$env.GODOT_SRC_ANDROID_SC_EDITOR_SETTINGS = ($env.GODOT_SRC_ANDROID_SC_EDITOR_SETTINGS? | default true)
+$env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH = $env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH? | default $"($env.GODOT_SRC_DIR)/debug.keystore"
+$env.GODOT_ANDROID_KEYSTORE_DEBUG_USER = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_USER? | default "androiddebugkey")
+$env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD? | default "android")
 
 export def "main install build-tools" [] {
     print "Setting up zig..."
@@ -94,10 +98,12 @@ export def "main godot config" [
     }
 
     let godot_bin_name = ($godot_bin_name | str join ".")
-    let godot_bin = $"($godot_dir)/bin/($godot_bin_name)"
+    let godot_bin_dir = $"($godot_dir)/bin"
+    let godot_bin = $"($godot_bin_dir)/($godot_bin_name)"
 
     return {
         godot_dir: $godot_dir,
+        godot_bin_dir: $godot_bin_dir,
         godot_bin: $godot_bin,
         godot_bin_name: $godot_bin_name,
         auto_install_godot: ($env.GODOT_SRC_AUTO_INSTALL_GODOT? | default true),
@@ -431,17 +437,14 @@ export def "main android key fingerprint" [
 # GODOT_ANDROID_KEYSTORE_DEBUG_USER
 # GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD
 export def "main android key create debug" [] {
-    $env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH? | default $"($env.FILE_PWD)/debug.keystore")
-    $env.GODOT_ANDROID_KEYSTORE_DEBUG_USER = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_USER? | default "androiddebugkey")
-    $env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD? | default "android")
-
     (main android key create
         $env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH
         $env.GODOT_ANDROID_KEYSTORE_DEBUG_USER
         $env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD
         $env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD
         "CN=Android Debug,O=Android,C=US"
-        9999)
+        9999
+    )
 }
 
 export def "main android key create" [
@@ -864,6 +867,8 @@ export def --wrapped "main export android" [
     --out-file: string
     ...rest
 ] {
+    $env.GODOT_SRC_GODOT_PLATFORM = "android"
+
     if not $skip_template {
         main godot build template android --release-mode=$release_mode
     }
@@ -872,13 +877,74 @@ export def --wrapped "main export android" [
 
     $env.PATH = ($env.PATH | append $jdk_config.bin_dir)
 
-    $env.GODOT_SRC_GODOT_PLATFORM = "android"
-    (main export 
-        --project=$project 
-        --release-mode=$release_mode 
-        --out-file=$out_file 
-        --preset=$preset
-        ...$rest)
+    if ($env.GODOT_SRC_ANDROID_SC_EDITOR_SETTINGS? | default true) {
+        let android_config = main android config
+        let android_keystore_debug_path = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH? | default $"($env.FILE_PWD)/debug.keystore")
+
+        if not ($android_keystore_debug_path | path exists) {
+            main android key create debug
+        }
+
+        let godot_config = main godot config
+        let editor_data_path = $"($godot_config.godot_bin_dir)/editor_data"
+        let sc_path = $"($godot_config.godot_bin_dir)/_sc_"
+        rm -rf $editor_data_path
+        # Set godot to be in self contained mode so we can set android settings that can only be set
+        # at the editor level: https://docs.godotengine.org/en/latest/tutorials/io/data_paths.html#self-contained-mode
+        touch $sc_path
+
+        main godot run --headless --editor --quit
+
+        mut do_append_java_sdk_path = true
+        mut do_append_android_sdk_path = true
+        let java_sdk_setting = "export/android/java_sdk_path"
+        let android_sdk_setting = "export/android/android_sdk_path"
+        let java_sdk_setting_assign = $"($java_sdk_setting) = \"($jdk_config.home_dir)\""
+        let android_sdk_setting_assign = $"($android_sdk_setting) = \"($android_config.cli_version_dir)\""
+        let godot_settings_path = (glob $"($env.GODOT_SRC_GODOT_DIR)/bin/editor_data/editor_settings-*.tres" | first)
+        mut godot_settings = ($godot_settings_path | open | split row "\n")
+
+        for setting in $godot_settings {
+            if ($setting | str starts-with $java_sdk_setting) {
+                $do_append_java_sdk_path = false
+                $java_sdk_setting_assign
+            } else if ($setting | str starts-with $android_sdk_setting) {
+                $do_append_android_sdk_path = false
+                $android_sdk_setting_assign
+            } else {
+                $setting
+            }
+        }
+
+        if $do_append_java_sdk_path {
+            $godot_settings = ($godot_settings | append $java_sdk_setting_assign)
+        }
+
+        if $do_append_android_sdk_path {
+            $godot_settings = ($godot_settings | append $android_sdk_setting_assign)
+        }
+
+        $godot_settings | str join "\n" | save -f $godot_settings_path
+
+        (main export 
+            --project=$project 
+            --release-mode=$release_mode 
+            --out-file=$out_file 
+            --preset=$preset
+            ...$rest
+        )
+
+        rm -rf $editor_data_path
+        rm -f $sc_path
+    } else {
+        (main export 
+            --project=$project 
+            --release-mode=$release_mode 
+            --out-file=$out_file 
+            --preset=$preset
+            ...$rest
+        )
+    }
 }
 
 export def --wrapped "main export macos" [
