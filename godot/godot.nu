@@ -910,6 +910,7 @@ export def --wrapped "main export android" [
     --out-file: string
     ...rest
 ] {
+    use utils.nu "to unix-path"
     $env.GODOT_SRC_GODOT_PLATFORM = "android"
 
     if not $skip_template {
@@ -942,9 +943,9 @@ export def --wrapped "main export android" [
         mut do_append_android_sdk_path = true
         let java_sdk_setting = "export/android/java_sdk_path"
         let android_sdk_setting = "export/android/android_sdk_path"
-        let java_sdk_setting_assign = $"($java_sdk_setting) = \"($jdk_config.home_dir)\""
-        let android_sdk_setting_assign = $"($android_sdk_setting) = \"($android_config.cli_version_dir)\""
-        let godot_settings_path = (glob $"($env.GODOT_SRC_GODOT_DIR)/bin/editor_data/editor_settings-*.tres" | first)
+        let java_sdk_setting_assign = $"($java_sdk_setting) = \"($jdk_config.home_dir | str replace --all '\' '/')\""
+        let android_sdk_setting_assign = $"($android_sdk_setting) = \"($android_config.cli_version_dir | str replace --all '\' '/')\""
+        let godot_settings_path = (glob ($"($env.GODOT_SRC_GODOT_DIR)/bin/editor_data/editor_settings-*.tres" | to unix-path) | first)
         mut godot_settings = ($godot_settings_path | open | split row "\n")
 
         for setting in $godot_settings {
