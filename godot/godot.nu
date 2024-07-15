@@ -32,7 +32,8 @@ export def "main install build-tools" [] {
     print "Dotnet setup successfully!"
     print "Setting up python and installing build tools..."
     nudep pypy init
-    run-external pip3 install "--upgrade" scons
+    # 4.8.0 introduced breaking changes that causes wildcard imports to fail.
+    run-external pip3 install SCons==4.7.0
     run-external pip3 install "--upgrade" cmake
     run-external pip3 install "--upgrade" ninja
     run-external pip3 install "--upgrade" mako
