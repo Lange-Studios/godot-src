@@ -34,6 +34,8 @@ def filter [args: list<string>] -> list<string> {
             "-lc++"
         } else if ($arg | str starts-with "-Wl,") and ($arg | str ends-with "list.def") {
             $arg | str substring 4..
+        } else if ($arg == "--whole-archive") {
+            "-Wl,--whole-archive"
         } else if (
             ($arg | str contains "libcompiler_builtins-") or
             ($arg | str contains "self-contained") or
