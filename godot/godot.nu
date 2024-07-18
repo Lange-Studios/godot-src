@@ -456,17 +456,15 @@ export def "main android key create debug" [] {
         $env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH
         $env.GODOT_ANDROID_KEYSTORE_DEBUG_USER
         $env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD
-        $env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD
         "CN=Android Debug,O=Android,C=US"
-        9999
+        99999
     )
 }
 
 export def "main android key create" [
     keystore_path: string,
     alias: string,
-    keypass: string,
-    storepass: string,
+    password: string,
     dname: string,
     validity: int
 ] {
@@ -481,9 +479,9 @@ export def "main android key create" [
         "-keyalg" "RSA" 
         "-genkeypair" 
         "-alias" $alias 
-        "-keypass" $keypass 
+        "-keypass" $password 
         "-keystore" $keystore_path 
-        "-storepass" $storepass 
+        "-storepass" $password 
         "-dname" $dname 
         "-validity" $validity 
         "-deststoretype" "pkcs12")
@@ -923,10 +921,13 @@ export def --wrapped "main export android" [
 
     if ($env.GODOT_SRC_ANDROID_SC_EDITOR_SETTINGS? | default true) {
         let android_config = main android config
-        let android_keystore_debug_path = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH? | default $"($env.FILE_PWD)/debug.keystore")
 
-        if not ($android_keystore_debug_path | path exists) {
-            main android key create debug
+        if $release_mode == "debug" {
+            let android_keystore_debug_path = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH? | default $"($env.FILE_PWD)/debug.keystore")
+
+            if not ($android_keystore_debug_path | path exists) {
+                main android key create debug
+            }
         }
 
         let godot_config = main godot config
