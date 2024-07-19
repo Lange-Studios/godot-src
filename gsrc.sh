@@ -13,4 +13,4 @@ fi
 
 # For some reason passing $@ directly does't work, so we assing to an intermediate args
 args=$@
-"$dir/gitignore/pixi/bin/pixi" run nu -c "source \"$dir/gsrc.nu\";main $args"
+"$dir/gitignore/pixi/bin/pixi" run nu -c "source \"$dir/gsrc.nu\";gsrc $args"

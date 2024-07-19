@@ -24,7 +24,7 @@ $env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH = $env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH?
 $env.GODOT_ANDROID_KEYSTORE_DEBUG_USER = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_USER? | default "androiddebugkey")
 $env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD? | default "android")
 
-export def "main install build-tools" [] {
+export def "gsrc install build-tools" [] {
     print "Setting up zig..."
     nudep zig run version
     print "Setting up dotnet..."
@@ -40,7 +40,7 @@ export def "main install build-tools" [] {
     print "Python and build tools set up successfully!"
 }
 
-export def "main godot config" [
+export def "gsrc godot config" [
     --target: string = "editor",
     --release-mode: string = "debug",
     --arch: string,
@@ -114,7 +114,7 @@ export def "main godot config" [
 }
 
 # Execute a godot command.  Will install zig if it doesn't exist.
-export def --wrapped "main godot run" [
+export def --wrapped "gsrc godot run" [
     ...rest
 ] {
     use ../nudep/core.nu *
@@ -124,7 +124,7 @@ export def --wrapped "main godot run" [
     # Update the path with dotnet if we are using it
     $env.PATH = (nudep dotnet env-path)
 
-    let config = main godot config;
+    let config = gsrc godot config;
 
     if $config.auto_install_godot {
         if not ($"($config.godot_dir)/LICENSE.txt" | path exists) {
@@ -133,11 +133,11 @@ export def --wrapped "main godot run" [
     }
 
     if not ($config.godot_bin | path exists) {
-        main godot build editor
+        gsrc godot build editor
     }
 
     if $env.GODOT_SRC_DOTNET_ENABLED {
-        main godot build dotnet-glue --platform ($env.GODOT_SRC_GODOT_PLATFORM? | default $nu.os-info.name)
+        gsrc godot build dotnet-glue --platform ($env.GODOT_SRC_GODOT_PLATFORM? | default $nu.os-info.name)
     }
     
     print $"Running godot command: ($config.godot_bin) ($rest | str join ' ')"
@@ -145,11 +145,11 @@ export def --wrapped "main godot run" [
 }
 
 # Build the godot editor for the host platform
-export def "main godot build editor" [
+export def "gsrc godot build editor" [
     --skip-cs-glue,
     --extra-scons-args: list<string>
 ] {
-    (main godot build 
+    (gsrc godot build 
         --release-mode "debug" 
         --skip-cs-glue=$skip_cs_glue 
         --compiledb 
@@ -158,12 +158,12 @@ export def "main godot build editor" [
     )
 }
 
-export def "main godot clean editor" [] {
+export def "gsrc godot clean editor" [] {
     use ../nudep
     use ../nudep/platform_constants.nu *
     use utils.nu
 
-    let config = main godot config
+    let config = gsrc godot config
 
     rm $config.godot_bin
     mkdir $"($config.godot_dir)/submodules/godot/bin/GodotSharp/Tools/nupkgs"
@@ -180,18 +180,18 @@ export def "main godot clean editor" [] {
     )
 }
 
-export def "main godot clean all" [] {
+export def "gsrc godot clean all" [] {
     use ../nudep
     use ../nudep/platform_constants.nu *
     use ../utils/utils.nu
 
-    let config = main godot config
+    let config = gsrc godot config
     utils git remove ignored $config.godot_dir
 }
 
 # Deletes godot and the directory where it is installed.  Only runs if auto_install_godot is true
-export def "main godot remove" [] {
-    let config = main godot config;
+export def "gsrc godot remove" [] {
+    let config = gsrc godot config;
 
     if not $config.auto_install_godot {
         error make {
@@ -203,10 +203,10 @@ export def "main godot remove" [] {
 }
 
 # Build the linux template
-export def "main godot build template linux" [
+export def "gsrc godot build template linux" [
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
 ] {
-    (main godot build 
+    (gsrc godot build 
         --release-mode $release_mode 
         --skip-cs-glue
         --target "template" 
@@ -215,18 +215,18 @@ export def "main godot build template linux" [
 }
 
 # Build the macos template
-export def "main godot build template macos" [
+export def "gsrc godot build template macos" [
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --arch: string,
 ] {
-    let config = (main godot config --target "template" --release-mode $release_mode --arch $arch)
+    let config = (gsrc godot config --target "template" --release-mode $release_mode --arch $arch)
     cd $config.godot_dir
 
     if $arch == "universal" {
-        let config_x86_64 = (main godot config --target "template" --release-mode $release_mode --arch "x86_64")
-        let config_arm64 = (main godot config --target "template" --release-mode $release_mode --arch "arm64")
+        let config_x86_64 = (gsrc godot config --target "template" --release-mode $release_mode --arch "x86_64")
+        let config_arm64 = (gsrc godot config --target "template" --release-mode $release_mode --arch "arm64")
 
-        (main godot build
+        (gsrc godot build
             --release-mode $release_mode
             --skip-cs-glue
             --target "template"
@@ -234,7 +234,7 @@ export def "main godot build template macos" [
             --arch "x86_64"
             )
 
-        (main godot build
+        (gsrc godot build
             --release-mode $release_mode
             --skip-cs-glue
             --target "template"
@@ -249,7 +249,7 @@ export def "main godot build template macos" [
             -output $"bin/($config.godot_bin_name)"
         )
     } else {
-        (main godot build
+        (gsrc godot build
             --release-mode $release_mode
             --skip-cs-glue
             --target "template"
@@ -263,12 +263,12 @@ export def "main godot build template macos" [
 
 # Build the macos app template.  This is the zip file that godot looks for and contains
 # the debug and release macos templates.
-export def "main godot build template macos app" [
+export def "gsrc godot build template macos app" [
     --arch: string,
     --skip-zip,
 ] {
-    let config_debug = (main godot build template macos --arch $arch --release-mode "debug")
-    let config_release = (main godot build template macos --arch $arch --release-mode "release")
+    let config_debug = (gsrc godot build template macos --arch $arch --release-mode "debug")
+    let config_release = (gsrc godot build template macos --arch $arch --release-mode "release")
     let godot_dir = $config_debug.godot_dir
     rm -rf $"($godot_dir)/bin/macos_template.app"
     cp -r $"($godot_dir)/misc/dist/macos_template.app" $"($godot_dir)/bin/"
@@ -286,18 +286,18 @@ export def "main godot build template macos app" [
 }
 
 # Build the macos template
-export def "main godot build template ios" [
+export def "gsrc godot build template ios" [
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --arch: string,
 ] {
-    let config = (main godot config --target "template" --release-mode $release_mode --arch $arch --platform "ios")
+    let config = (gsrc godot config --target "template" --release-mode $release_mode --arch $arch --platform "ios")
     cd $config.godot_dir
 
     if $arch == "universal" {
-        let config_x86_64 = (main godot config --target "template" --release-mode $release_mode --arch "x86_64" --platform "ios")
-        let config_arm64 = (main godot config --target "template" --release-mode $release_mode --arch "arm64" --platform "ios")
+        let config_x86_64 = (gsrc godot config --target "template" --release-mode $release_mode --arch "x86_64" --platform "ios")
+        let config_arm64 = (gsrc godot config --target "template" --release-mode $release_mode --arch "arm64" --platform "ios")
 
-        (main godot build
+        (gsrc godot build
             --release-mode $release_mode
             --skip-cs-glue
             --target "template"
@@ -305,7 +305,7 @@ export def "main godot build template ios" [
             --arch "x86_64"
         )
 
-        (main godot build
+        (gsrc godot build
             --release-mode $release_mode
             --skip-cs-glue
             --target "template"
@@ -319,7 +319,7 @@ export def "main godot build template ios" [
         #         $"bin/($config_arm64.godot_bin_name)"
         #     -output $"bin/($config.godot_bin_name)")
     } else {
-        (main godot build
+        (gsrc godot build
             --release-mode $release_mode
             --skip-cs-glue
             --target "template"
@@ -333,15 +333,15 @@ export def "main godot build template ios" [
 
 # Build the macos app template.  This is the zip file that godot looks for and contains
 # the debug and release macos templates.
-export def "main godot build template ios app" [
+export def "gsrc godot build template ios app" [
     --arch: string,
     --skip-zip,
 ] {
     use ../nudep/multen-vk-ios.nu
 
     let multen_vk_config = (multen-vk-ios download)
-    let config_debug = (main godot build template ios --arch $arch --release-mode "debug")
-    let config_release = (main godot build template ios --arch $arch --release-mode "release")
+    let config_debug = (gsrc godot build template ios --arch $arch --release-mode "debug")
+    let config_release = (gsrc godot build template ios --arch $arch --release-mode "release")
     let godot_dir = $config_debug.godot_dir
     rm -rf $"($godot_dir)/bin/ios_xcode"
     cp -r $"($godot_dir)/misc/dist/ios_xcode" $"($godot_dir)/bin/"
@@ -357,7 +357,7 @@ export def "main godot build template ios app" [
     }
 }
 
-export def "main godot build godot-nir" [] {
+export def "gsrc godot build godot-nir" [] {
     use ../nudep/core.nu *
     use ../nudep
 
@@ -380,7 +380,7 @@ export def "main godot build godot-nir" [] {
         "msvc" => "x86_64-windows"
     }
 
-    load-env (main zig cxx env-vars-wrapped $zig_target)
+    load-env (gsrc zig cxx env-vars-wrapped $zig_target)
 
     let extra_args = match $nu.os-info.name {
         "windows" => [
@@ -398,7 +398,7 @@ export def "main godot build godot-nir" [] {
         "import_env_vars=ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR"
         "use_mingw=true"
         ...$extra_args
-        ...(main zig cxx scons-vars $zig_target))
+        ...(gsrc zig cxx scons-vars $zig_target))
 
     cd $prev_dir
 
@@ -409,27 +409,27 @@ export def "main godot build godot-nir" [] {
 }
 
 # Build the windows template
-export def "main godot build template windows" [
+export def "gsrc godot build template windows" [
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
 ] {
-    (main godot build 
+    (gsrc godot build 
         --release-mode $release_mode 
         --skip-cs-glue 
         --target "template" 
         --platform "windows")
 }
 
-export def "main android config" [] {
+export def "gsrc android config" [] {
     use ../nudep/android-cli.nu
     android-cli config
 }
 
-export def "main jdk config" [] {
+export def "gsrc jdk config" [] {
     use ../nudep/jdk.nu
     jdk config
 }
 
-export def --wrapped "main jdk run" [
+export def --wrapped "gsrc jdk run" [
     command: string, 
     ...rest
 ] {
@@ -438,10 +438,10 @@ export def --wrapped "main jdk run" [
 }
 
 # Prints the fingerprint of the keystore at the provided path
-export def "main android key fingerprint" [
+export def "gsrc android key fingerprint" [
     keystore_path: string
 ] {
-    main jdk run keytool -keystore $keystore_path -list -v
+    gsrc jdk run keytool -keystore $keystore_path -list -v
 }
 
 # Documented here: https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_android.html#create-a-debug-keystore
@@ -451,8 +451,8 @@ export def "main android key fingerprint" [
 # GODOT_ANDROID_KEYSTORE_DEBUG_PATH
 # GODOT_ANDROID_KEYSTORE_DEBUG_USER
 # GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD
-export def "main android key create debug" [] {
-    (main android key create
+export def "gsrc android key create debug" [] {
+    (gsrc android key create
         $env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH
         $env.GODOT_ANDROID_KEYSTORE_DEBUG_USER
         $env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD
@@ -461,7 +461,7 @@ export def "main android key create debug" [] {
     )
 }
 
-export def "main android key create" [
+export def "gsrc android key create" [
     keystore_path: string,
     alias: string,
     password: string,
@@ -475,7 +475,7 @@ export def "main android key create" [
 
     print $"Creating keystore at path: ($keystore_path)"
 
-    (main jdk run keytool 
+    (gsrc jdk run keytool 
         "-keyalg" "RSA" 
         "-genkeypair" 
         "-alias" $alias 
@@ -487,13 +487,13 @@ export def "main android key create" [
         "-deststoretype" "pkcs12")
 }
 
-export def --wrapped "main adb run" [
+export def --wrapped "gsrc adb run" [
     ...rest
 ] {
-    run-external $"(main android config | get "cli_version_dir")/platform-tools/adb" ...$rest
+    run-external $"(gsrc android config | get "cli_version_dir")/platform-tools/adb" ...$rest
 }
 
-export def "main android setup-cli" [] {
+export def "gsrc android setup-cli" [] {
     use ../utils/utils.nu
     use ../nudep/jdk.nu
     use ../nudep/android-cli.nu
@@ -501,8 +501,8 @@ export def "main android setup-cli" [] {
     jdk download
     android-cli download
 
-    let android_config = main android config
-    let jdk_config = main jdk config
+    let android_config = gsrc android config
+    let jdk_config = gsrc jdk config
     
     $env.PATH = ($env.PATH | prepend $jdk_config.bin_dir)
     $env.ANDROID_HOME = $"($android_config.cli_version_dir)"
@@ -530,7 +530,7 @@ export def "main android setup-cli" [] {
 }
 
 # Build the android template
-export def "main godot build template android" [
+export def "gsrc godot build template android" [
     # The architectures to build for. Defaults to: [ "arm32", "arm64", "x86_32", "x86_64" ]
     --archs: list<string> = [ "arm32", "arm64", "x86_32", "x86_64" ],
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
@@ -542,7 +542,7 @@ export def "main godot build template android" [
     jdk download
     android-cli download
 
-    let godot_config = main godot config
+    let godot_config = gsrc godot config
 
     # Gradle doesn't seem to rebuild when godot source changes.  So we need to force it.
     # Fortunately this part of the build seems to be rather quick.
@@ -551,13 +551,13 @@ export def "main godot build template android" [
     rm -rf $"($godot_config.godot_dir)/bin/android_($release_mode).apk"
     rm -rf $"($godot_config.godot_dir)/bin/godot-lib.template_($release_mode).aar"
 
-    let android_config = main android config
-    let jdk_config = main jdk config
+    let android_config = gsrc android config
+    let jdk_config = gsrc jdk config
     
     $env.PATH = ($env.PATH | prepend $jdk_config.bin_dir)
     $env.ANDROID_HOME = $"($android_config.cli_version_dir)"
 
-    main android setup-cli
+    gsrc android setup-cli
     
     $archs | enumerate | each { |arch|
         # Always generate the apk last
@@ -566,7 +566,7 @@ export def "main godot build template android" [
             false => []
         }
 
-        (main godot build 
+        (gsrc godot build 
             --release-mode $release_mode 
             --skip-cs-glue 
             --target "template" 
@@ -576,9 +576,9 @@ export def "main godot build template android" [
     }
 }
 
-export def "main godot clean dotnet" [] {
+export def "gsrc godot clean dotnet" [] {
     use ../utils/utils.nu
-    let config = main godot config
+    let config = gsrc godot config
     rm -rf $"($config.godot_dir)/bin/GodotSharp"
     utils git remove ignored $"($config.godot_dir)/modules/mono/glue/GodotSharp"
     utils git remove ignored $"($config.godot_dir)/modules/mono/editor/Godot.NET.Sdk"
@@ -592,12 +592,12 @@ export def "main godot clean dotnet" [] {
 }
 
 # use --help to see commands and details
-export def "main godot" [] {
+export def "gsrc godot" [] {
 
 }
 
 # use --help to see commands and details
-export def "main godot build" [
+export def "gsrc godot build" [
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-cs-glue # Skips generating or rebuilding the csharp glue
     --platform: string # the platform to build for
@@ -612,7 +612,7 @@ export def "main godot build" [
     use ../nudep
     validate_arg $release_mode "--release-mode" ((metadata $release_mode).span) "release" "debug"
 
-    let config = main godot config;
+    let config = gsrc godot config;
 
     let skip_nir = ($env.GODOT_SRC_SKIP_NIR? | default "false")
 
@@ -620,7 +620,7 @@ export def "main godot build" [
 
     # Godot nir is required for windows dx12
     if $platform == "windows" and $"($skip_nir)" != "true" {
-        main godot build godot-nir
+        gsrc godot build godot-nir
     }
 
     if $config.auto_install_godot {
@@ -681,7 +681,7 @@ export def "main godot build" [
                 "gnu" => "x86_64-windows-gnu",
                 "msvc" => "x86_64-windows"
             }
-            $scons_args = ($scons_args | append (main zig cxx scons-vars $zig_target) | append [
+            $scons_args = ($scons_args | append (gsrc zig cxx scons-vars $zig_target) | append [
                 "d3d12=yes"
                 "vulkan=no"
                 $"dxc_path=($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc"
@@ -696,7 +696,7 @@ export def "main godot build" [
         },
         "linux" => {
             $zig_target = "x86_64-linux-gnu"
-            $scons_args = ($scons_args | append (main zig cxx scons-vars "x86_64-linux-gnu") | append [
+            $scons_args = ($scons_args | append (gsrc zig cxx scons-vars "x86_64-linux-gnu") | append [
                 "use_libatomic=false" # false here because we are letting zig handle it
                 "use_static_cpp=false" # false here because we are specifying static libc++ above
                 "platform_tools=false" # Tell godot's build system to not override our CC, CXX, etc.
@@ -768,7 +768,7 @@ export def "main godot build" [
 
     load-env (match ($zig_target != "") {
         true => {
-            (main zig cxx env-vars-wrapped $zig_target)
+            (gsrc zig cxx env-vars-wrapped $zig_target)
         }
         false => {{}}
     })
@@ -776,18 +776,18 @@ export def "main godot build" [
     run-external "scons" ...$scons_args
 
     if $env.GODOT_SRC_DOTNET_ENABLED and not $skip_cs_glue {
-        main godot build dotnet-glue --force --platform $platform
+        gsrc godot build dotnet-glue --force --platform $platform
     }
 }
 
-export def "main godot build dotnet-glue" [
+export def "gsrc godot build dotnet-glue" [
     --platform: string = $nu.os-info.name
     --force
 ] {
     let platform = utils godot-platform $platform
     mut do_build = $force
 
-    let godot_config = main godot config
+    let godot_config = gsrc godot config
     let csharp_build_info = $"($godot_config.godot_bin_dir)/GodotSharp/info.txt"
     let expected_info_contents = $"($godot_config.godot_bin),($env.GODOT_SRC_PRECISION),($platform)"
 
@@ -800,7 +800,7 @@ export def "main godot build dotnet-glue" [
     }
     
     if $do_build {
-        main godot clean dotnet
+        gsrc godot clean dotnet
         # The directory where godot will be built out to
         mkdir $godot_config.godot_bin_dir
         # This folder needs to exist in order for the nuget packages to be output here
@@ -825,10 +825,10 @@ export def "main godot build dotnet-glue" [
 }
 
 # use --help to see commands and details
-export def "main godot clean" [] {
+export def "gsrc godot clean" [] {
 }
 
-export def --wrapped "main export" [
+export def --wrapped "gsrc export" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --out-file: string
@@ -842,11 +842,11 @@ export def --wrapped "main export" [
     rm -rf $out_dir
     mkdir $out_dir
     
-    main godot run --headless --path $project $"--export-($release_mode)" $preset ...$rest $out_file
+    gsrc godot run --headless --path $project $"--export-($release_mode)" $preset ...$rest $out_file
     print $"Successfully exported to: ($out_file)"
 }
 
-export def "main export linux" [
+export def "gsrc export linux" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
@@ -854,14 +854,14 @@ export def "main export linux" [
     --out-file: string
 ] {
     if not $skip_template {
-        main godot build template linux --release-mode=$release_mode
+        gsrc godot build template linux --release-mode=$release_mode
     }
 
     $env.GODOT_SRC_GODOT_PLATFORM = "linuxbsd"
-    main export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
+    gsrc export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
 }
 
-export def "main export windows" [
+export def "gsrc export windows" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
@@ -872,10 +872,10 @@ export def "main export windows" [
     $env.GODOT_SRC_GODOT_PLATFORM = "windows"
 
     if not $skip_template {
-        main godot build template windows --release-mode=$release_mode
+        gsrc godot build template windows --release-mode=$release_mode
     }
 
-    main export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
+    gsrc export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
     let out_dir = ($"($out_file)/.." | path expand)
     let dxil_path = $"($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc/bin/x64/dxil.dll"
     mkdir $out_dir
@@ -900,7 +900,7 @@ export def "main export windows" [
     }
 }
 
-export def --wrapped "main export android" [
+export def --wrapped "gsrc export android" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
@@ -912,25 +912,25 @@ export def --wrapped "main export android" [
     $env.GODOT_SRC_GODOT_PLATFORM = "android"
 
     if not $skip_template {
-        main godot build template android --release-mode=$release_mode
+        gsrc godot build template android --release-mode=$release_mode
     }
 
-    let jdk_config = main jdk config
+    let jdk_config = gsrc jdk config
 
     $env.PATH = ($env.PATH | append $jdk_config.bin_dir)
 
     if ($env.GODOT_SRC_ANDROID_SC_EDITOR_SETTINGS? | default true) {
-        let android_config = main android config
+        let android_config = gsrc android config
 
         if $release_mode == "debug" {
             let android_keystore_debug_path = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH? | default $"($env.FILE_PWD)/debug.keystore")
 
             if not ($android_keystore_debug_path | path exists) {
-                main android key create debug
+                gsrc android key create debug
             }
         }
 
-        let godot_config = main godot config
+        let godot_config = gsrc godot config
         let editor_data_path = $"($godot_config.godot_bin_dir)/editor_data"
         let sc_path = $"($godot_config.godot_bin_dir)/_sc_"
         rm -rf $editor_data_path
@@ -938,7 +938,7 @@ export def --wrapped "main export android" [
         # at the editor level: https://docs.godotengine.org/en/latest/tutorials/io/data_paths.html#self-contained-mode
         touch $sc_path
 
-        main godot run --headless --editor --quit
+        gsrc godot run --headless --editor --quit
 
         mut do_append_java_sdk_path = true
         mut do_append_android_sdk_path = true
@@ -971,7 +971,7 @@ export def --wrapped "main export android" [
 
         $godot_settings | str join "\n" | save -f $godot_settings_path
 
-        (main export 
+        (gsrc export 
             --project=$project 
             --release-mode=$release_mode 
             --out-file=$out_file 
@@ -982,7 +982,7 @@ export def --wrapped "main export android" [
         rm -rf $editor_data_path
         rm -f $sc_path
     } else {
-        (main export 
+        (gsrc export 
             --project=$project 
             --release-mode=$release_mode 
             --out-file=$out_file 
@@ -992,7 +992,7 @@ export def --wrapped "main export android" [
     }
 }
 
-export def --wrapped "main export macos" [
+export def --wrapped "gsrc export macos" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
@@ -1005,11 +1005,11 @@ export def --wrapped "main export macos" [
     validate_arg $release_mode "--release-mode" ((metadata $release_mode).span) "release" "debug"
 
     if not $skip_template {
-        main godot build template macos app --arch=$arch
+        gsrc godot build template macos app --arch=$arch
     }
 
     $env.GODOT_SRC_GODOT_PLATFORM = "macos"
-    (main export 
+    (gsrc export 
         --project=$project 
         --release-mode=$release_mode 
         --out-file=$out_file 
@@ -1017,7 +1017,7 @@ export def --wrapped "main export macos" [
         ...$rest)
 }
 
-export def --wrapped "main export ios" [
+export def --wrapped "gsrc export ios" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
@@ -1030,11 +1030,11 @@ export def --wrapped "main export ios" [
     validate_arg $release_mode "--release-mode" ((metadata $release_mode).span) "release" "debug"
 
     if not $skip_template {
-        main godot build template ios app --arch=$arch
+        gsrc godot build template ios app --arch=$arch
     }
 
     $env.GODOT_SRC_GODOT_PLATFORM = "ios"
-    (main export 
+    (gsrc export 
         --project=$project 
         --release-mode=$release_mode 
         --out-file=$out_file 
@@ -1042,7 +1042,7 @@ export def --wrapped "main export ios" [
         ...$rest)
 }
 
-export def "main vulkan compile validation android" [
+export def "gsrc vulkan compile validation android" [
     android_libs_path: string,
     --release-mode: string = "debug",
 ] {
@@ -1052,10 +1052,10 @@ export def "main vulkan compile validation android" [
 }
 
 # Returns vars commonly accepted by scons. See more here under "User Guide": https://scons.org/documentation.html
-export def "main zig cxx scons-vars" [target: string] -> string[] {
+export def "gsrc zig cxx scons-vars" [target: string] -> string[] {
     use ../nudep
 
-    let cxx_env_vars = main zig cxx env-vars-wrapped $target
+    let cxx_env_vars = gsrc zig cxx env-vars-wrapped $target
 
     return [
         $"CC=($cxx_env_vars.CC)"
@@ -1069,7 +1069,7 @@ export def "main zig cxx scons-vars" [target: string] -> string[] {
 }
 
 # Returns common env vars to use the zig toolchain when compiling c++ code.
-export def "main zig cxx env-vars" [target: string] {
+export def "gsrc zig cxx env-vars" [target: string] {
     use ../nudep
 
     return {
@@ -1084,15 +1084,15 @@ export def "main zig cxx env-vars" [target: string] {
 }
 
 # Returns common env vars to use the zig toolchain when compiling c++ code.
-export def "main zig cxx env-vars-wrapped" [target: string] {
+export def "gsrc zig cxx env-vars-wrapped" [target: string] {
     use ../nudep
 
     let zig_filter_script = $"($env.GODOT_SRC_DIR)/zig/zig-cc-cxx.nu"
-    let cc = (main wrap-script zig-cc $nu.current-exe $zig_filter_script $"(nudep zig bin)" cc -target ($target))
-    let cxx = (main wrap-script zig-c++ $nu.current-exe $zig_filter_script $"(nudep zig bin)" c++ -target ($target))
-    let ar = (main wrap-script zig-ar $"(nudep zig bin)" ar)
-    let ranlib = (main wrap-script zig-ranlib $"(nudep zig bin)" ranlib)
-    let rc = (main wrap-script zig-rc $"(nudep zig bin)" rc)
+    let cc = (gsrc wrap-script zig-cc $nu.current-exe $zig_filter_script $"(nudep zig bin)" cc -target ($target))
+    let cxx = (gsrc wrap-script zig-c++ $nu.current-exe $zig_filter_script $"(nudep zig bin)" c++ -target ($target))
+    let ar = (gsrc wrap-script zig-ar $"(nudep zig bin)" ar)
+    let ranlib = (gsrc wrap-script zig-ranlib $"(nudep zig bin)" ranlib)
+    let rc = (gsrc wrap-script zig-rc $"(nudep zig bin)" rc)
     
     return {
         CC: $cc
@@ -1106,7 +1106,7 @@ export def "main zig cxx env-vars-wrapped" [target: string] {
 }
 
 # Returns common env vars to use the zig toolchain when compiling c++ code.
-export def "main android cxx env-vars" [target: string] {
+export def "gsrc android cxx env-vars" [target: string] {
     use ../nudep/android-cli.nu
 
     let android_config = android-cli config
@@ -1132,7 +1132,7 @@ export def "main android cxx env-vars" [target: string] {
     }
 }
 
-export def --wrapped "main wrap-script" [script_name: string, ...rest] -> string {
+export def --wrapped "gsrc wrap-script" [script_name: string, ...rest] -> string {
     let script_dir = $"($env.GODOT_SRC_DIR)/gitignore/wrapper-scripts"
     mkdir $script_dir
 
