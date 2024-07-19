@@ -10,7 +10,7 @@ export def "nudep http file" [
 
     mkdir (dirname $file_path)
     print $"http get ($url) - downloading to ($file_path)"
-    http get $url | save $file_path
+    http get $url | save -p $file_path
 }
 
 # Decompresses the zip file at the file_path to the out_dir if the contents of that directory are empty

@@ -19,6 +19,10 @@ $env.PATH = (nudep dotnet env-path)
 $env.PATH = (nudep pypy env-path)
 $env.PATH = ($env.PATH | append (nudep zig bin_dir))
 $env.GODOT_SRC_ANDROID_VERSION = ($env.GODOT_SRC_ANDROID_VERSION? | default "24")
+$env.GODOT_SRC_ANDROID_SC_EDITOR_SETTINGS = ($env.GODOT_SRC_ANDROID_SC_EDITOR_SETTINGS? | default true)
+$env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH = $env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH? | default $"($env.GODOT_SRC_DIR)/debug.keystore"
+$env.GODOT_ANDROID_KEYSTORE_DEBUG_USER = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_USER? | default "androiddebugkey")
+$env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD? | default "android")
 
 export def "main install build-tools" [] {
     print "Setting up zig..."
@@ -28,7 +32,8 @@ export def "main install build-tools" [] {
     print "Dotnet setup successfully!"
     print "Setting up python and installing build tools..."
     nudep pypy init
-    run-external pip3 install "--upgrade" scons
+    # 4.8.0 introduced breaking changes that causes wildcard imports to fail.
+    run-external pip3 install SCons==4.7.0
     run-external pip3 install "--upgrade" cmake
     run-external pip3 install "--upgrade" ninja
     run-external pip3 install "--upgrade" mako
@@ -94,10 +99,12 @@ export def "main godot config" [
     }
 
     let godot_bin_name = ($godot_bin_name | str join ".")
-    let godot_bin = $"($godot_dir)/bin/($godot_bin_name)"
+    let godot_bin_dir = $"($godot_dir)/bin"
+    let godot_bin = $"($godot_bin_dir)/($godot_bin_name)"
 
     return {
         godot_dir: $godot_dir,
+        godot_bin_dir: $godot_bin_dir,
         godot_bin: $godot_bin,
         godot_bin_name: $godot_bin_name,
         auto_install_godot: ($env.GODOT_SRC_AUTO_INSTALL_GODOT? | default true),
@@ -128,6 +135,10 @@ export def --wrapped "main godot run" [
     if not ($config.godot_bin | path exists) {
         main godot build editor
     }
+
+    if $env.GODOT_SRC_DOTNET_ENABLED {
+        main godot build dotnet-glue --platform ($env.GODOT_SRC_GODOT_PLATFORM? | default $nu.os-info.name)
+    }
     
     print $"Running godot command: ($config.godot_bin) ($rest | str join ' ')"
     run-external $config.godot_bin ...$rest
@@ -143,7 +154,8 @@ export def "main godot build editor" [
         --skip-cs-glue=$skip_cs_glue 
         --compiledb 
         --platform $nu.os-info.name 
-        --extra-scons-args $extra_scons_args)
+        --extra-scons-args $extra_scons_args
+    )
 }
 
 export def "main godot clean editor" [] {
@@ -164,7 +176,8 @@ export def "main godot clean editor" [] {
         "debug_symbols=yes"
         $"module_mono_enabled=($env.GODOT_SRC_DOTNET_ENABLED)"
         "compiledb=yes"
-        $"precision=($env.GODOT_SRC_PRECISION)")
+        $"precision=($env.GODOT_SRC_PRECISION)"
+    )
 }
 
 export def "main godot clean all" [] {
@@ -197,7 +210,8 @@ export def "main godot build template linux" [
         --release-mode $release_mode 
         --skip-cs-glue
         --target "template" 
-        --platform "linux")
+        --platform "linux"
+    )
 }
 
 # Build the macos template
@@ -217,27 +231,31 @@ export def "main godot build template macos" [
             --skip-cs-glue
             --target "template"
             --platform "macos"
-            --arch "x86_64")
+            --arch "x86_64"
+            )
 
         (main godot build
             --release-mode $release_mode
             --skip-cs-glue
             --target "template"
             --platform "macos"
-            --arch "arm64")
+            --arch "arm64"
+        )
 
         (lipo 
             -create 
                 $"bin/($config_x86_64.godot_bin_name)"
                 $"bin/($config_arm64.godot_bin_name)"
-            -output $"bin/($config.godot_bin_name)")
+            -output $"bin/($config.godot_bin_name)"
+        )
     } else {
         (main godot build
             --release-mode $release_mode
             --skip-cs-glue
             --target "template"
             --platform "macos"
-            --arch $arch)
+            --arch $arch
+        )
     }
 
     return $config
@@ -284,14 +302,16 @@ export def "main godot build template ios" [
             --skip-cs-glue
             --target "template"
             --platform "ios"
-            --arch "x86_64")
+            --arch "x86_64"
+        )
 
         (main godot build
             --release-mode $release_mode
             --skip-cs-glue
             --target "template"
             --platform "ios"
-            --arch "arm64")
+            --arch "arm64"
+        )
 
         # (lipo 
         #     -create 
@@ -304,7 +324,8 @@ export def "main godot build template ios" [
             --skip-cs-glue
             --target "template"
             --platform "ios"
-            --arch $arch)
+            --arch $arch
+        )
     }
 
     return $config
@@ -359,12 +380,24 @@ export def "main godot build godot-nir" [] {
         "msvc" => "x86_64-windows"
     }
 
+    load-env (main zig cxx env-vars-wrapped $zig_target)
+
+    let extra_args = match $nu.os-info.name {
+        "windows" => [
+            "ARCOM=${TEMPFILE('$AR rcs $TARGET $SOURCES','$ARCOMSTR')}",
+            "--ignore-errors"
+        ],
+        _ => []
+    }
+
     (run-external "scons" 
         "platform=windows" 
         "arch=x86_64" 
         "use_llvm=true"
         "platform_tools=false"
         "import_env_vars=ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR"
+        "use_mingw=true"
+        ...$extra_args
         ...(main zig cxx scons-vars $zig_target))
 
     cd $prev_dir
@@ -419,24 +452,19 @@ export def "main android key fingerprint" [
 # GODOT_ANDROID_KEYSTORE_DEBUG_USER
 # GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD
 export def "main android key create debug" [] {
-    $env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH? | default $"($env.FILE_PWD)/debug.keystore")
-    $env.GODOT_ANDROID_KEYSTORE_DEBUG_USER = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_USER? | default "androiddebugkey")
-    $env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD? | default "android")
-
     (main android key create
         $env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH
         $env.GODOT_ANDROID_KEYSTORE_DEBUG_USER
         $env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD
-        $env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD
         "CN=Android Debug,O=Android,C=US"
-        9999)
+        99999
+    )
 }
 
 export def "main android key create" [
     keystore_path: string,
     alias: string,
-    keypass: string,
-    storepass: string,
+    password: string,
     dname: string,
     validity: int
 ] {
@@ -451,9 +479,9 @@ export def "main android key create" [
         "-keyalg" "RSA" 
         "-genkeypair" 
         "-alias" $alias 
-        "-keypass" $keypass 
+        "-keypass" $password 
         "-keystore" $keystore_path 
-        "-storepass" $storepass 
+        "-storepass" $password 
         "-dname" $dname 
         "-validity" $validity 
         "-deststoretype" "pkcs12")
@@ -588,6 +616,8 @@ export def "main godot build" [
 
     let skip_nir = ($env.GODOT_SRC_SKIP_NIR? | default "false")
 
+    mut zig_target = ""
+
     # Godot nir is required for windows dx12
     if $platform == "windows" and $"($skip_nir)" != "true" {
         main godot build godot-nir
@@ -606,6 +636,17 @@ export def "main godot build" [
         $"use_llvm=($env.GODOT_SRC_GODOT_USE_LLVM)"
         "verbose=true"
     ] | append $extra_scons_args | append $env.GODOT_SRC_EXTRA_SCONS_ARGS?)
+
+    if $nu.os-info.name == "windows" {
+        $scons_args = ($scons_args | append [
+            "ARCOM=${TEMPFILE('$AR rcs $TARGET $SOURCES','$ARCOMSTR')}",
+            "--ignore-errors"
+        ])
+    }
+
+    if $platform == "windows" {
+        $scons_args = ($scons_args | append "use_mingw=true")
+    }
 
     # LTO doesn't work on windows for some reason.  Causes a lot of undefined symbols errors.
     if $release_mode == "release" and $platform != "windows" {
@@ -636,7 +677,7 @@ export def "main godot build" [
 
     match $platform {
         "windows" => {
-            let zig_target = match $env.GODOT_SRC_WINDOWS_ABI {
+            $zig_target = match $env.GODOT_SRC_WINDOWS_ABI {
                 "gnu" => "x86_64-windows-gnu",
                 "msvc" => "x86_64-windows"
             }
@@ -654,6 +695,7 @@ export def "main godot build" [
             ])
         },
         "linux" => {
+            $zig_target = "x86_64-linux-gnu"
             $scons_args = ($scons_args | append (main zig cxx scons-vars "x86_64-linux-gnu") | append [
                 "use_libatomic=false" # false here because we are letting zig handle it
                 "use_static_cpp=false" # false here because we are specifying static libc++ above
@@ -724,26 +766,61 @@ export def "main godot build" [
 
     print $"running scons: scons ($scons_args | str join ' ')"
 
+    load-env (match ($zig_target != "") {
+        true => {
+            (main zig cxx env-vars-wrapped $zig_target)
+        }
+        false => {{}}
+    })
+
     run-external "scons" ...$scons_args
 
     if $env.GODOT_SRC_DOTNET_ENABLED and not $skip_cs_glue {
+        main godot build dotnet-glue --force --platform $platform
+    }
+}
+
+export def "main godot build dotnet-glue" [
+    --platform: string = $nu.os-info.name
+    --force
+] {
+    let platform = utils godot-platform $platform
+    mut do_build = $force
+
+    let godot_config = main godot config
+    let csharp_build_info = $"($godot_config.godot_bin_dir)/GodotSharp/info.txt"
+    let expected_info_contents = $"($godot_config.godot_bin),($env.GODOT_SRC_PRECISION),($platform)"
+
+    if not $do_build {
+        $do_build = (not ($csharp_build_info | path exists))
+    }
+
+    if not $do_build {
+        $do_build = (open $csharp_build_info | $in != $expected_info_contents)
+    }
+    
+    if $do_build {
         main godot clean dotnet
         # The directory where godot will be built out to
-        mkdir $"($config.godot_dir)/bin"
+        mkdir $godot_config.godot_bin_dir
         # This folder needs to exist in order for the nuget packages to be output here
-        mkdir $"($config.godot_dir)/bin/GodotSharp/Tools/nupkgs"
+        mkdir $"($godot_config.godot_bin_dir)/GodotSharp/Tools/nupkgs"
         (run-external 
-            $config.godot_bin 
+            $godot_config.godot_bin 
             "--headless" 
             "--generate-mono-glue" 
-            $"($config.godot_dir)/modules/mono/glue" 
-            $"--precision=($env.GODOT_SRC_PRECISION)")
+            $"($godot_config.godot_dir)/modules/mono/glue" 
+            $"--precision=($env.GODOT_SRC_PRECISION)"
+        )
         (run-external 
             "python3"
-            $"($config.godot_dir)/modules/mono/build_scripts/build_assemblies.py"
-            $"--godot-output-dir=($config.godot_dir)/bin"
+            $"($godot_config.godot_dir)/modules/mono/build_scripts/build_assemblies.py"
+            $"--godot-output-dir=($godot_config.godot_bin_dir)"
             $"--precision=($env.GODOT_SRC_PRECISION)"
-            $"--godot-platform=($platform)")
+            $"--godot-platform=($platform)"
+        )
+
+        $expected_info_contents | save -f $csharp_build_info
     }
 }
 
@@ -831,6 +908,9 @@ export def --wrapped "main export android" [
     --out-file: string
     ...rest
 ] {
+    use utils.nu "to unix-path"
+    $env.GODOT_SRC_GODOT_PLATFORM = "android"
+
     if not $skip_template {
         main godot build template android --release-mode=$release_mode
     }
@@ -839,13 +919,77 @@ export def --wrapped "main export android" [
 
     $env.PATH = ($env.PATH | append $jdk_config.bin_dir)
 
-    $env.GODOT_SRC_GODOT_PLATFORM = "android"
-    (main export 
-        --project=$project 
-        --release-mode=$release_mode 
-        --out-file=$out_file 
-        --preset=$preset
-        ...$rest)
+    if ($env.GODOT_SRC_ANDROID_SC_EDITOR_SETTINGS? | default true) {
+        let android_config = main android config
+
+        if $release_mode == "debug" {
+            let android_keystore_debug_path = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH? | default $"($env.FILE_PWD)/debug.keystore")
+
+            if not ($android_keystore_debug_path | path exists) {
+                main android key create debug
+            }
+        }
+
+        let godot_config = main godot config
+        let editor_data_path = $"($godot_config.godot_bin_dir)/editor_data"
+        let sc_path = $"($godot_config.godot_bin_dir)/_sc_"
+        rm -rf $editor_data_path
+        # Set godot to be in self contained mode so we can set android settings that can only be set
+        # at the editor level: https://docs.godotengine.org/en/latest/tutorials/io/data_paths.html#self-contained-mode
+        touch $sc_path
+
+        main godot run --headless --editor --quit
+
+        mut do_append_java_sdk_path = true
+        mut do_append_android_sdk_path = true
+        let java_sdk_setting = "export/android/java_sdk_path"
+        let android_sdk_setting = "export/android/android_sdk_path"
+        let java_sdk_setting_assign = $"($java_sdk_setting) = \"($jdk_config.home_dir | str replace --all '\' '/')\""
+        let android_sdk_setting_assign = $"($android_sdk_setting) = \"($android_config.cli_version_dir | str replace --all '\' '/')\""
+        let godot_settings_path = (glob ($"($env.GODOT_SRC_GODOT_DIR)/bin/editor_data/editor_settings-*.tres" | to unix-path) | first)
+        mut godot_settings = ($godot_settings_path | open | split row "\n")
+
+        for setting in $godot_settings {
+            if ($setting | str starts-with $java_sdk_setting) {
+                $do_append_java_sdk_path = false
+                $java_sdk_setting_assign
+            } else if ($setting | str starts-with $android_sdk_setting) {
+                $do_append_android_sdk_path = false
+                $android_sdk_setting_assign
+            } else {
+                $setting
+            }
+        }
+
+        if $do_append_java_sdk_path {
+            $godot_settings = ($godot_settings | append $java_sdk_setting_assign)
+        }
+
+        if $do_append_android_sdk_path {
+            $godot_settings = ($godot_settings | append $android_sdk_setting_assign)
+        }
+
+        $godot_settings | str join "\n" | save -f $godot_settings_path
+
+        (main export 
+            --project=$project 
+            --release-mode=$release_mode 
+            --out-file=$out_file 
+            --preset=$preset
+            ...$rest
+        )
+
+        rm -rf $editor_data_path
+        rm -f $sc_path
+    } else {
+        (main export 
+            --project=$project 
+            --release-mode=$release_mode 
+            --out-file=$out_file 
+            --preset=$preset
+            ...$rest
+        )
+    }
 }
 
 export def --wrapped "main export macos" [
@@ -911,7 +1055,7 @@ export def "main vulkan compile validation android" [
 export def "main zig cxx scons-vars" [target: string] -> string[] {
     use ../nudep
 
-    let cxx_env_vars = main zig cxx env-vars $target
+    let cxx_env_vars = main zig cxx env-vars-wrapped $target
 
     return [
         $"CC=($cxx_env_vars.CC)"
@@ -946,15 +1090,18 @@ export def "main zig cxx env-vars-wrapped" [target: string] {
     let zig_filter_script = $"($env.GODOT_SRC_DIR)/zig/zig-cc-cxx.nu"
     let cc = (main wrap-script zig-cc $nu.current-exe $zig_filter_script $"(nudep zig bin)" cc -target ($target))
     let cxx = (main wrap-script zig-c++ $nu.current-exe $zig_filter_script $"(nudep zig bin)" c++ -target ($target))
-
+    let ar = (main wrap-script zig-ar $"(nudep zig bin)" ar)
+    let ranlib = (main wrap-script zig-ranlib $"(nudep zig bin)" ranlib)
+    let rc = (main wrap-script zig-rc $"(nudep zig bin)" rc)
+    
     return {
         CC: $cc
         CXX: $cxx
         LD: $cxx
         AS: $cxx
-        AR: (main wrap-script zig-ar $"(nudep zig bin)" ar)
-        RANLIB: (main wrap-script zig-ranlib $"(nudep zig bin)" ranlib)
-        RC: (main wrap-script zig-rc $"(nudep zig bin)" rc)
+        AR: $ar
+        RANLIB: $ranlib
+        RC: $rc
     }
 }
 
@@ -963,7 +1110,10 @@ export def "main android cxx env-vars" [target: string] {
     use ../nudep/android-cli.nu
 
     let android_config = android-cli config
-    let llvm_dir = $"($android_config.ndk_dir)/toolchains/llvm/prebuilt/($nu.os-info.name)-($nu.os-info.arch)/bin"
+    let llvm_dir = (
+        $"($android_config.ndk_dir)/toolchains/llvm/prebuilt/($nu.os-info.name)-($nu.os-info.arch)/bin"
+        | str replace --all "\\" "/"
+    )
 
     let ext = match $nu.os-info.name {
         "windows" => ".cmd",
@@ -989,11 +1139,11 @@ export def --wrapped "main wrap-script" [script_name: string, ...rest] -> string
     if $nu.os-info.name == "windows" {
         let script_path = $"($script_dir)/($script_name).cmd"
         $"@echo off\n($rest | each { |it| '"' + $it + '"' } | str join ' ') %*" | save -f $script_path
-        return $script_path
+        return ($script_path | str replace --all "\\" "/")
     } else {
         let script_path = $"($script_dir)/($script_name).sh"
         $"#!/bin/bash\n($rest | each { |it| '"' + $it + '"' } | str join ' ') \"$@\"" | save -f $script_path
         chmod +x $script_path
-        return $script_path
+        return ($script_path | str replace --all "\\" "/")
     }
 }
