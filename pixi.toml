@@ -10,3 +10,4 @@ platforms = ["linux-64"]
 
 [dependencies]
 nushell = ">=0.95.0,<0.96"
+dotnet = ">=8.0.302,<8.1"

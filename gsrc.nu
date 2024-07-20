@@ -1,6 +1,7 @@
 # Append the current running new instance to the path
 $env.PATH = ($env.PATH | prepend ($nu.current-exe | path dirname))
-$env.GODOT_SRC_DIR = ($env.GODOT_SRC_DIR? | default $env.FILE_PWD)
+$env.GODOT_SRC_DIR = ($env.GODOT_SRC_DIR? | default $env.PWD)
+$env.PATH = ($env.PATH | prepend $"($env.GODOT_SRC_DIR)/.pixi/envs/default/bin")
 
 source godot/godot.nu
 
@@ -39,4 +40,9 @@ export def --wrapped "gsrc zig run" [
     use nudep
 
     nudep zig run ...$rest
+}
+
+# Run a pixi command
+export def --wrapped "gsrc pixi" [...rest] {
+    run-external $"($env.PIXI_HOME)/bin/pixi" ...$rest
 }

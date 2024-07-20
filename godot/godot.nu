@@ -15,7 +15,6 @@ $env.GODOT_SRC_WINDOWS_ABI = ($env.GODOT_SRC_WINDOWS_ABI? | default "gnu")
 # Default godot's platform to the host machine unless specified otherwise and make sure dotnet
 # is set up for the host machine
 $env.GODOT_SRC_GODOT_PLATFORM = ($env.GODOT_SRC_GODOT_PLATFORM? | default (utils godot-platform $nu.os-info.name))
-$env.PATH = (nudep dotnet env-path)
 $env.PATH = (nudep pypy env-path)
 $env.PATH = ($env.PATH | append (nudep zig bin_dir))
 $env.GODOT_SRC_ANDROID_VERSION = ($env.GODOT_SRC_ANDROID_VERSION? | default "24")
@@ -923,7 +922,7 @@ export def --wrapped "gsrc export android" [
         let android_config = gsrc android config
 
         if $release_mode == "debug" {
-            let android_keystore_debug_path = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH? | default $"($env.FILE_PWD)/debug.keystore")
+            let android_keystore_debug_path = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH? | default $"($env.GODOT_SRC_DIR)/debug.keystore")
 
             if not ($android_keystore_debug_path | path exists) {
                 gsrc android key create debug
