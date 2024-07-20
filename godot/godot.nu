@@ -787,7 +787,7 @@ export def "gsrc godot build dotnet-glue" [
 
     let godot_config = gsrc godot config
     let csharp_build_info = $"($godot_config.godot_bin_dir)/GodotSharp/info.txt"
-    let expected_info_contents = $"($godot_config.godot_bin),($env.GODOT_SRC_PRECISION),($platform)"
+    let expected_info_contents = $"($env.GODOT_SRC_GODOT_EXTRA_SUFFIX)_($env.GODOT_SRC_PRECISION)_($platform)"
 
     if not $do_build {
         $do_build = (not ($csharp_build_info | path exists))
