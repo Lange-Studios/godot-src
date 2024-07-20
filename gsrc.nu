@@ -1,6 +1,6 @@
 # Append the current running new instance to the path
+$env.GODOT_SRC_DIR = ($env.GODOT_SRC_DIR? | ($env.GSRC_SCRIPT | path expand | path dirname))
 $env.PATH = ($env.PATH | prepend ($nu.current-exe | path dirname))
-$env.GODOT_SRC_DIR = ($env.GODOT_SRC_DIR? | default $env.PWD)
 $env.PATH = ($env.PATH | prepend $"($env.GODOT_SRC_DIR)/.pixi/envs/default/bin")
 
 source godot/godot.nu
