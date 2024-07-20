@@ -15,7 +15,7 @@ $env.GODOT_SRC_WINDOWS_ABI = ($env.GODOT_SRC_WINDOWS_ABI? | default "gnu")
 # Default godot's platform to the host machine unless specified otherwise and make sure dotnet
 # is set up for the host machine
 $env.GODOT_SRC_GODOT_PLATFORM = ($env.GODOT_SRC_GODOT_PLATFORM? | default (utils godot-platform $nu.os-info.name))
-$env.PATH = (nudep pypy env-path)
+$env.PATH = (nudep dotnet env-path)
 $env.PATH = ($env.PATH | append (nudep zig bin_dir))
 $env.GODOT_SRC_ANDROID_VERSION = ($env.GODOT_SRC_ANDROID_VERSION? | default "24")
 $env.GODOT_SRC_ANDROID_SC_EDITOR_SETTINGS = ($env.GODOT_SRC_ANDROID_SC_EDITOR_SETTINGS? | default true)
@@ -30,12 +30,13 @@ export def "gsrc install build-tools" [] {
     nudep dotnet init
     print "Dotnet setup successfully!"
     print "Setting up python and installing build tools..."
-    nudep pypy init
+    gsrc pixi run python3 "-m" "ensurepip"
+    gsrc pixi run python3 "-m" pip install "--upgrade" pip
     # 4.8.0 introduced breaking changes that causes wildcard imports to fail.
-    run-external pip3 install SCons==4.7.0
-    run-external pip3 install "--upgrade" cmake
-    run-external pip3 install "--upgrade" ninja
-    run-external pip3 install "--upgrade" mako
+    gsrc pixi run pip3 install SCons==4.7.0
+    gsrc pixi run pip3 install "--upgrade" cmake
+    gsrc pixi run pip3 install "--upgrade" ninja
+    gsrc pixi run pip3 install "--upgrade" mako
     print "Python and build tools set up successfully!"
 }
 
@@ -384,7 +385,6 @@ export def "gsrc godot build godot-nir" [] {
     let extra_args = match $nu.os-info.name {
         "windows" => [
             "ARCOM=${TEMPFILE('$AR rcs $TARGET $SOURCES','$ARCOMSTR')}",
-            "--ignore-errors"
         ],
         _ => []
     }
@@ -639,7 +639,6 @@ export def "gsrc godot build" [
     if $nu.os-info.name == "windows" {
         $scons_args = ($scons_args | append [
             "ARCOM=${TEMPFILE('$AR rcs $TARGET $SOURCES','$ARCOMSTR')}",
-            "--ignore-errors"
         ])
     }
 

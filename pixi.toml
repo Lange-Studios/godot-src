@@ -4,10 +4,10 @@ version = "0.1.0"
 description = "Working with godot from source made easy!"
 authors = ["Lange Studios"]
 channels = ["conda-forge"]
-platforms = ["linux-64"]
+platforms = ["linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64"]
 
 [tasks]
 
 [dependencies]
 nushell = ">=0.95.0,<0.96"
-dotnet = ">=8.0.302,<8.1"
+python = ">=3.12.4,<3.13"
