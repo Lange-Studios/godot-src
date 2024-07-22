@@ -24,20 +24,13 @@ $env.GODOT_ANDROID_KEYSTORE_DEBUG_USER = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_USER
 $env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD? | default "android")
 
 export def "gsrc install build-tools" [] {
-    print "Setting up zig..."
-    nudep zig run version
-    print "Setting up dotnet..."
+    print "Installing dotnet..."
     nudep dotnet init
-    print "Dotnet setup successfully!"
-    print "Setting up python and installing build tools..."
-    gsrc pixi run python3 "-m" "ensurepip"
-    gsrc pixi run python3 "-m" pip install "--upgrade" pip
-    # 4.8.0 introduced breaking changes that causes wildcard imports to fail.
-    gsrc pixi run pip3 install SCons==4.7.0
-    gsrc pixi run pip3 install "--upgrade" cmake
-    gsrc pixi run pip3 install "--upgrade" ninja
-    gsrc pixi run pip3 install "--upgrade" mako
-    print "Python and build tools set up successfully!"
+    print "Dotnet installed successfully!"
+    print "Installing pixi dependencies..."
+    gsrc pixi install --manifest-path $"($env.GODOT_SRC_DIR)/pixi.toml"
+    gsrc pixi run --manifest-path $"($env.GODOT_SRC_DIR)/pixi.toml" install-zig
+    print "Pixi dependencies installed successfully!"
 }
 
 export def "gsrc godot config" [
