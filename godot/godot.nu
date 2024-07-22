@@ -786,11 +786,27 @@ export def "gsrc godot build dotnet-glue" [
         $do_build = (not ($csharp_build_info | path exists))
     }
 
+    mut actual_info_contents = ""
+
     if not $do_build {
-        $do_build = (open $csharp_build_info | $in != $expected_info_contents)
+        $actual_info_contents = ($csharp_build_info | open | str trim)
+        if $actual_info_contents == "" or $actual_info_contents != $expected_info_contents {
+            $do_build = true
+            rm -rf $"($godot_config.godot_bin_dir)/GodotSharp_($actual_info_contents)"
+            (mv -f
+                $"($godot_config.godot_bin_dir)/GodotSharp"
+                $"($godot_config.godot_bin_dir)/GodotSharp_($actual_info_contents)"
+            )
+        }
     }
     
     if $do_build {
+        let cached_csharp = $"($godot_config.godot_bin_dir)/GodotSharp_($expected_info_contents)"
+        if ($cached_csharp | path exists) {
+            mv $cached_csharp $"($godot_config.godot_bin_dir)/GodotSharp"
+            return
+        }
+
         gsrc godot clean dotnet
         # The directory where godot will be built out to
         mkdir $godot_config.godot_bin_dir
