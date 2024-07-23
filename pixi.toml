@@ -16,6 +16,4 @@ scons = "==4.7.0"
 cmake = "*"
 ninja = "*"
 mako = "*"
-
-[tasks]
-install-zig = "pip3 install zig-bin==0.13.0"
+ziglang = "==0.13.0"

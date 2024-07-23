@@ -2,6 +2,9 @@
 $env.GODOT_SRC_DIR = ($env.GODOT_SRC_DIR? | default ($env.GSRC_SCRIPT | path expand | path dirname))
 $env.PATH = ($env.PATH | prepend ($nu.current-exe | path dirname))
 $env.PATH = ($env.PATH | prepend $"($env.GODOT_SRC_DIR)/.pixi/envs/default/bin")
+$env.PATH = ($env.PATH | prepend (
+    (gsrc pixi run --manifest-path $"($env.GODOT_SRC_DIR)/pixi.toml" python3 -m ziglang env | from json).zig_exe | path dirname
+))
 
 # Unset this since we want to support other pixi.toml's after startup
 $env.PIXI_PROJECT_MANIFEST = null

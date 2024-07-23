@@ -29,7 +29,6 @@ export def "gsrc install build-tools" [] {
     print "Dotnet installed successfully!"
     print "Installing pixi dependencies..."
     gsrc pixi install --manifest-path $"($env.GODOT_SRC_DIR)/pixi.toml"
-    gsrc pixi run --manifest-path $"($env.GODOT_SRC_DIR)/pixi.toml" install-zig
     print "Pixi dependencies installed successfully!"
 }
 
@@ -114,6 +113,8 @@ export def --wrapped "gsrc godot run" [
     use ../nudep/platform_constants.nu *
     use ../nudep
 
+    mut rest = $rest
+
     # Update the path with dotnet if we are using it
     $env.PATH = (nudep dotnet env-path)
 
@@ -133,6 +134,10 @@ export def --wrapped "gsrc godot run" [
         gsrc godot build dotnet-glue --platform ($env.GODOT_SRC_GODOT_PLATFORM? | default $nu.os-info.name)
     }
     
+    if (($env.GODOT_SRC_GODOT_CLI_ARGS? | default []) | length) > 0 {
+        $rest = ($rest | append $env.GODOT_SRC_GODOT_CLI_ARGS)
+    }
+
     print $"Running godot command: ($config.godot_bin) ($rest | str join ' ')"
     run-external $config.godot_bin ...$rest
 }
