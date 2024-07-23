@@ -16,7 +16,7 @@ $env.GODOT_SRC_WINDOWS_ABI = ($env.GODOT_SRC_WINDOWS_ABI? | default "gnu")
 # is set up for the host machine
 $env.GODOT_SRC_GODOT_PLATFORM = ($env.GODOT_SRC_GODOT_PLATFORM? | default (utils godot-platform $nu.os-info.name))
 $env.PATH = (nudep dotnet env-path)
-$env.PATH = ($env.PATH | append (nudep zig bin_dir))
+$env.PATH = ($env.PATH | prepend $"($env.GODOT_SRC_DIR)/gitignore/pixi/bin")
 $env.GODOT_SRC_ANDROID_VERSION = ($env.GODOT_SRC_ANDROID_VERSION? | default "24")
 $env.GODOT_SRC_ANDROID_SC_EDITOR_SETTINGS = ($env.GODOT_SRC_ANDROID_SC_EDITOR_SETTINGS? | default true)
 $env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH = $env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH? | default $"($env.GODOT_SRC_DIR)/debug.keystore"
