@@ -504,6 +504,7 @@ export def "gsrc android setup-cli" [] {
     $env.PATH = ($env.PATH | prepend $jdk_config.bin_dir)
     $env.ANDROID_HOME = $"($android_config.cli_version_dir)"
     $env.ANDROID_SDK_ROOT = $"($android_config.cli_version_dir)"
+    $env.ANDROID_NDK_HOME = $android_config.ndk_dir
     $env.JAVA_HOME = $jdk_config.home_dir
 
     let sdk_manager_ext = match $nu.os-info.name {
@@ -567,6 +568,7 @@ export def "gsrc godot build template android" [
     $env.PATH = ($env.PATH | prepend $jdk_config.bin_dir)
     $env.ANDROID_HOME = $"($android_config.cli_version_dir)"
     $env.ANDROID_SDK_ROOT = $"($android_config.cli_version_dir)"
+    $env.ANDROID_NDK_HOME = $android_config.ndk_dir
     $env.JAVA_HOME = $jdk_config.home_dir
 
     gsrc android setup-cli

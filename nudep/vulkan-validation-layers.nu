@@ -45,6 +45,7 @@ export def "compile android" [
     let android_cli_config = android-cli config
     let jdk_config = jdk config
 
+    $env.ANDROID_HOME = $"($android_cli_config.cli_version_dir)"
     $env.ANDROID_SDK_ROOT = $android_cli_config.cli_version_dir
     $env.ANDROID_NDK_HOME = $android_cli_config.ndk_dir
     $env.JAVA_HOME = $jdk_config.home_dir
