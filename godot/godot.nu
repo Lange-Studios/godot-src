@@ -502,8 +502,8 @@ export def "gsrc android setup-cli" [] {
     let jdk_config = gsrc jdk config
     
     $env.PATH = ($env.PATH | prepend $jdk_config.bin_dir)
-    $env.ANDROID_HOME = $"($android_config.cli_version_dir)"
-    $env.ANDROID_SDK_ROOT = $"($android_config.cli_version_dir)"
+    $env.ANDROID_HOME = $android_config.cli_version_dir
+    $env.ANDROID_SDK_ROOT = $android_config.cli_version_dir
     $env.ANDROID_NDK_HOME = $android_config.ndk_dir
     $env.JAVA_HOME = $jdk_config.home_dir
 
@@ -566,8 +566,8 @@ export def "gsrc godot build template android" [
     let jdk_config = gsrc jdk config
     
     $env.PATH = ($env.PATH | prepend $jdk_config.bin_dir)
-    $env.ANDROID_HOME = $"($android_config.cli_version_dir)"
-    $env.ANDROID_SDK_ROOT = $"($android_config.cli_version_dir)"
+    $env.ANDROID_HOME = $android_config.cli_version_dir
+    $env.ANDROID_SDK_ROOT = $android_config.cli_version_dir
     $env.ANDROID_NDK_HOME = $android_config.ndk_dir
     $env.JAVA_HOME = $jdk_config.home_dir
 
@@ -945,13 +945,15 @@ export def --wrapped "gsrc export android" [
     }
 
     let jdk_config = gsrc jdk config
+    let android_config = gsrc android config
 
     $env.PATH = ($env.PATH | append $jdk_config.bin_dir)
     $env.JAVA_HOME = $jdk_config.home_dir
+    $env.ANDROID_HOME = $android_config.cli_version_dir
+    $env.ANDROID_SDK_ROOT = $android_config.cli_version_dir
+    $env.ANDROID_NDK_HOME = $android_config.ndk_dir
 
     if ($env.GODOT_SRC_ANDROID_SC_EDITOR_SETTINGS? | default true) {
-        let android_config = gsrc android config
-
         if $release_mode == "debug" {
             let android_keystore_debug_path = ($env.GODOT_ANDROID_KEYSTORE_DEBUG_PATH? | default $"($env.GODOT_SRC_DIR)/debug.keystore")
 
