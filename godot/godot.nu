@@ -503,6 +503,7 @@ export def "gsrc android setup-cli" [] {
     
     $env.PATH = ($env.PATH | prepend $jdk_config.bin_dir)
     $env.ANDROID_HOME = $"($android_config.cli_version_dir)"
+    $env.JAVA_HOME = $jdk_config.home_dir
 
     let sdk_manager_ext = match $nu.os-info.name {
         "windows" => ".bat",
@@ -563,6 +564,7 @@ export def "gsrc godot build template android" [
     
     $env.PATH = ($env.PATH | prepend $jdk_config.bin_dir)
     $env.ANDROID_HOME = $"($android_config.cli_version_dir)"
+    $env.JAVA_HOME = $jdk_config.home_dir
 
     gsrc android setup-cli
     
@@ -940,6 +942,7 @@ export def --wrapped "gsrc export android" [
     let jdk_config = gsrc jdk config
 
     $env.PATH = ($env.PATH | append $jdk_config.bin_dir)
+    $env.JAVA_HOME = $jdk_config.home_dir
 
     if ($env.GODOT_SRC_ANDROID_SC_EDITOR_SETTINGS? | default true) {
         let android_config = gsrc android config
