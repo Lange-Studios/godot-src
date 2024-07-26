@@ -513,9 +513,19 @@ export def "gsrc android setup-cli" [] {
     if not ($"($env.ANDROID_HOME)/cmdline-tools/latest/NOTICE.txt" | path exists) {
         # Most online docs reccomend putting sdk_root in ANDROID_HOME/sdk but scons seems to want it in the
         # same directory as ANDROID_HOME
-        (run-external $"($env.ANDROID_HOME)/cmdline-tools/bin/sdkmanager($sdk_manager_ext)"
-            $"--sdk_root=($env.ANDROID_HOME)" 
-            "--licenses")
+        if $"($env.GODOT_SRC_AUTO_ACCEPT_ANDROID_SDK_LICENSES? | default "false")" == "true" {
+            print "auto accepting android sdkmanager licenses..."
+            (yes | run-external $"($env.ANDROID_HOME)/cmdline-tools/bin/sdkmanager($sdk_manager_ext)"
+                $"--sdk_root=($env.ANDROID_HOME)" 
+                "--licenses"
+            )
+        } else {
+            (run-external $"($env.ANDROID_HOME)/cmdline-tools/bin/sdkmanager($sdk_manager_ext)"
+                $"--sdk_root=($env.ANDROID_HOME)" 
+                "--licenses"
+            )
+        }
+        
         (run-external $"($env.ANDROID_HOME)/cmdline-tools/bin/sdkmanager($sdk_manager_ext)"
             $"--sdk_root=($env.ANDROID_HOME)"
             "platform-tools" 
