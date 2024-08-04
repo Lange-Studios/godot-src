@@ -1,10 +1,30 @@
 # Append the current running new instance to the path
-$env.GODOT_SRC_DIR = ($env.GODOT_SRC_DIR? | default ($env.GSRC_SCRIPT | path expand | path dirname))
-$env.PATH = ($env.PATH | prepend ($nu.current-exe | path dirname))
+$env.GODOT_SRC_DIR = ($env.GODOT_SRC_DIR? | default (($env.GSRC_SCRIPT? | default $"($env.PWD)/gsrc.nu") | path expand | path dirname))
+$env.PIXI_NO_PATH_UPDATE = "true"
+$env.PIXI_VERSION = ($env.PIXI_VERSION? | default "v0.26.1")
+$env.PIXI_HOME = ($env.PIXI_HOME? | default $"($env.GODOT_SRC_DIR)/gitignore/pixi")
+$env.PATH = ($env.PATH | prepend $"($env.GODOT_SRC_DIR)/.pixi/envs/default")
 $env.PATH = ($env.PATH | prepend $"($env.GODOT_SRC_DIR)/.pixi/envs/default/bin")
 $env.PATH = ($env.PATH | prepend (
-    (gsrc pixi run --manifest-path $"($env.GODOT_SRC_DIR)/pixi.toml" python3 -m ziglang env | from json).zig_exe | path dirname
+    (gsrc pixi run --manifest-path $"($env.GODOT_SRC_DIR)/pixi.toml" python -m ziglang env | from json).zig_exe | path dirname
 ))
+$env.PIXI_HOME = ($env.PIXI_HOME? | default $"($env.GODOT_SRC_DIR)/gitignore/python-wrapper")
+
+$env.PATH = match ($nu.os-info.name == "windows") {
+    true => {
+        mkdir $"($env.GODOT_SRC_DIR)/gitignore/python-link"
+        rm -f $"($env.GODOT_SRC_DIR)\\gitignore\\python-link\\python3.exe"
+        mklink $"($env.GODOT_SRC_DIR)\\gitignore\\python-link\\python3.exe" $"($env.GODOT_SRC_DIR)\\.pixi\\envs\\default\\python.exe" | ignore
+        ($env.PATH | prepend $"($env.GODOT_SRC_DIR)/gitignore/python-link")
+    },
+    false => $env.PATH
+}
+
+if $nu.os-info.name == "windows" and not ($"($env.PIXI_HOME)/bin/pixi.exe" | path exists) {
+    powershell -Command "iwr -useb https://pixi.sh/install.ps1 | iex"
+} else if $nu.os-info.name != "windows" and not ($"($env.PIXI_HOME)/bin/pixi" | path exists) {
+    http get https://pixi.sh/install.sh | bash
+}
 
 # Unset this since we want to support other pixi.toml's after startup
 $env.PIXI_PROJECT_MANIFEST = null
