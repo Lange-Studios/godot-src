@@ -383,6 +383,7 @@ export def "gsrc godot build godot-nir" [] {
     let extra_args = match $nu.os-info.name {
         "windows" => [
             "ARCOM=${TEMPFILE('$AR rcs $TARGET $SOURCES','$ARCOMSTR')}",
+            "--ignore-errors",
         ],
         _ => []
     }
@@ -654,6 +655,7 @@ export def "gsrc godot build" [
     if $nu.os-info.name == "windows" {
         $scons_args = ($scons_args | append [
             "ARCOM=${TEMPFILE('$AR rcs $TARGET $SOURCES','$ARCOMSTR')}",
+            "--ignore-errors",
         ])
     }
 
