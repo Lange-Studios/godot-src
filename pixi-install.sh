@@ -7,7 +7,7 @@ export PIXI_VERSION=${PIXI_VERSION:-"v0.26.1"}
 export PIXI_HOME=${PIXI_HOME:-"$dir/gitignore/pixi"}
 export GSRC_SCRIPT=${GSRC_SCRIPT:-"$dir/gsrc.nu"}
 
-if ! test -f "$dir/gitignore/pixi/bin/pixi"
+if ! test -f "$dir/gitignore/pixi/bin/pixi" || [[ "$($dir/gitignore/pixi/bin/pixi --version)" != "pixi ${PIXI_VERSION:1}" ]]
 then
     if curl --version
     then
