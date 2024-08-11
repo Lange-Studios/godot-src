@@ -1139,7 +1139,7 @@ export def "gsrc zig cxx env-vars-wrapped" [target: string] {
     }
 }
 
-# Returns common env vars to use the zig toolchain when compiling c++ code.
+# Returns common env vars to use the android llvm toolchain when compiling C / C++ code.
 export def "gsrc android cxx env-vars" [target: string] {
     use ../nudep/android-cli.nu
 
@@ -1163,6 +1163,8 @@ export def "gsrc android cxx env-vars" [target: string] {
         AR: $"($llvm_dir)/llvm-ar"
         RANLIB: $"($llvm_dir)/llvm-ranlib"
         RC: $"($llvm_dir)/llvm-rc"
+        STRIP: $"($llvm_dir)/llvm-strip"
+        NM: $"($llvm_dir)/llvm-nm"
     }
 }
 
