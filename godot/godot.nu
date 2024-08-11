@@ -131,7 +131,7 @@ export def --wrapped "gsrc godot run" [
     }
 
     if $env.GODOT_SRC_DOTNET_ENABLED {
-        gsrc godot build dotnet-glue --platform ($env.GODOT_SRC_GODOT_PLATFORM? | default $nu.os-info.name)
+        gsrc godot build dotnet-glue
     }
     
     if (($env.GODOT_SRC_GODOT_CLI_ARGS? | default []) | length) > 0 {
