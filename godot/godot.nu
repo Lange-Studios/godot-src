@@ -264,15 +264,24 @@ export def "gsrc godot build template macos" [
 export def "gsrc godot build template macos app" [
     --arch: string,
     --skip-zip,
+    --skip-debug,
+    --skip-release,
 ] {
-    let config_debug = (gsrc godot build template macos --arch $arch --release-mode "debug")
-    let config_release = (gsrc godot build template macos --arch $arch --release-mode "release")
-    let godot_dir = $config_debug.godot_dir
+    let godot_config = gsrc godot config
+    let godot_dir = $godot_config.godot_dir
     rm -rf $"($godot_dir)/bin/macos_template.app"
     cp -r $"($godot_dir)/misc/dist/macos_template.app" $"($godot_dir)/bin/"
     mkdir $"($godot_dir)/bin/macos_template.app/Contents/MacOS"
-    mv $config_debug.godot_bin $"($godot_dir)/bin/macos_template.app/Contents/MacOS/godot_macos_debug.($arch)"
-    mv $config_release.godot_bin $"($godot_dir)/bin/macos_template.app/Contents/MacOS/godot_macos_release.($arch)"
+    if not $skip_debug {
+        let config_debug = (gsrc godot build template macos --arch $arch --release-mode "debug")
+        mv $config_debug.godot_bin $"($godot_dir)/bin/macos_template.app/Contents/MacOS/godot_macos_debug.($arch)"
+    }
+    
+    if not $skip_release {
+        let config_release = (gsrc godot build template macos --arch $arch --release-mode "release")
+        mv $config_release.godot_bin $"($godot_dir)/bin/macos_template.app/Contents/MacOS/godot_macos_release.($arch)"
+    }
+
     chmod +x ...(glob $"($godot_dir)/bin/macos_template.app/Contents/MacOS/godot_macos*")
 
     if not $skip_zip {
@@ -334,17 +343,27 @@ export def "gsrc godot build template ios" [
 export def "gsrc godot build template ios app" [
     --arch: string,
     --skip-zip,
+    --skip-debug,
+    --skip-release,
 ] {
     use ../nudep/multen-vk-ios.nu
 
+    let godot_config = gsrc godot config
     let multen_vk_config = (multen-vk-ios download)
-    let config_debug = (gsrc godot build template ios --arch $arch --release-mode "debug")
-    let config_release = (gsrc godot build template ios --arch $arch --release-mode "release")
-    let godot_dir = $config_debug.godot_dir
+    let godot_dir = $godot_config.godot_dir
     rm -rf $"($godot_dir)/bin/ios_xcode"
     cp -r $"($godot_dir)/misc/dist/ios_xcode" $"($godot_dir)/bin/"
-    mv $config_debug.godot_bin $"($godot_dir)/bin/ios_xcode/libgodot.ios.debug.xcframework/ios-arm64/libgodot.a"
-    mv $config_release.godot_bin $"($godot_dir)/bin/ios_xcode/libgodot.ios.release.xcframework/ios-arm64/libgodot.a"
+    
+    if not $skip_debug {
+        let config_debug = (gsrc godot build template ios --arch $arch --release-mode "debug")
+        mv $config_debug.godot_bin $"($godot_dir)/bin/ios_xcode/libgodot.ios.debug.xcframework/ios-arm64/libgodot.a"
+    }
+
+    if not $skip_release {
+        let config_release = (gsrc godot build template ios --arch $arch --release-mode "release")
+        mv $config_release.godot_bin $"($godot_dir)/bin/ios_xcode/libgodot.ios.release.xcframework/ios-arm64/libgodot.a"
+    }
+
     cp -r $"($multen_vk_config.version_dir)/MoltenVK/MoltenVK/static/MoltenVK.xcframework" $"($godot_dir)/bin/ios_xcode/"
 
     if not $skip_zip {
