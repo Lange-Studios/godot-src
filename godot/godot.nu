@@ -350,8 +350,8 @@ export def "gsrc godot build template ios app" [
     if not $skip_zip {
         print $"zipping ($godot_dir)/bin/ios_xcode"
         cd $"($godot_dir)/bin/ios_xcode"
-        rm -f "ios.zip"
-        run-external zip "-q" "-9" "-r" "ios.zip" "*"
+        run-external zip "-q" "-9" "-r" "ios.zip" .
+        mv -f "ios.zip" "../"
     }
 }
 
@@ -615,6 +615,7 @@ export def "gsrc godot" [] {
 export def "gsrc godot build" [
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-cs-glue # Skips generating or rebuilding the csharp glue
+    --skip-lto # skips lto even in a release build
     --platform: string # the platform to build for
     --compiledb, # Whether or not to compile the databse for ides
     --target: string # specify a target such as template
@@ -664,7 +665,7 @@ export def "gsrc godot build" [
     }
 
     # LTO doesn't work on windows for some reason.  Causes a lot of undefined symbols errors.
-    if $release_mode == "release" and $platform != "windows" {
+    if not $skip_lto and $release_mode == "release" and $platform != "windows" {
         $scons_args = ($scons_args | append "lto=full")
     }
 
