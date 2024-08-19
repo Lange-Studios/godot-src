@@ -296,6 +296,7 @@ export def "gsrc godot build template macos app" [
 export def "gsrc godot build template ios" [
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --arch: string,
+    --skip-lto,
 ] {
     let config = (gsrc godot config --target "template" --release-mode $release_mode --arch $arch --platform "ios")
     cd $config.godot_dir
@@ -310,6 +311,7 @@ export def "gsrc godot build template ios" [
             --target "template"
             --platform "ios"
             --arch "x86_64"
+            --skip-lto=$skip_lto
         )
 
         (gsrc godot build
@@ -318,6 +320,7 @@ export def "gsrc godot build template ios" [
             --target "template"
             --platform "ios"
             --arch "arm64"
+            --skip-lto=$skip_lto
         )
 
         # (lipo 
@@ -332,6 +335,7 @@ export def "gsrc godot build template ios" [
             --target "template"
             --platform "ios"
             --arch $arch
+            --skip-lto=$skip_lto
         )
     }
 
@@ -345,6 +349,7 @@ export def "gsrc godot build template ios app" [
     --skip-zip,
     --skip-debug,
     --skip-release,
+    --skip-lto,
 ] {
     use ../nudep/multen-vk-ios.nu
 
@@ -355,12 +360,12 @@ export def "gsrc godot build template ios app" [
     cp -r $"($godot_dir)/misc/dist/ios_xcode" $"($godot_dir)/bin/"
     
     if not $skip_debug {
-        let config_debug = (gsrc godot build template ios --arch $arch --release-mode "debug")
+        let config_debug = (gsrc godot build template ios --arch $arch --release-mode "debug" --skip-lto=$skip_lto)
         mv $config_debug.godot_bin $"($godot_dir)/bin/ios_xcode/libgodot.ios.debug.xcframework/ios-arm64/libgodot.a"
     }
 
     if not $skip_release {
-        let config_release = (gsrc godot build template ios --arch $arch --release-mode "release")
+        let config_release = (gsrc godot build template ios --arch $arch --release-mode "release" --skip-lto=$skip_lto)
         mv $config_release.godot_bin $"($godot_dir)/bin/ios_xcode/libgodot.ios.release.xcframework/ios-arm64/libgodot.a"
     }
 
