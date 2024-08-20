@@ -424,10 +424,7 @@ export def "gsrc godot build godot-nir" [] {
 
     cd $prev_dir
 
-    let dxc_dir = $"($env.GODOT_SRC_DIR)/gitignore/dxc"
-
-    nudep http file $"https://github.com/microsoft/DirectXShaderCompiler/releases/download/($env.GODOT_SRC_DXC_VERSION)/($env.GODOT_SRC_DXC_DATE).zip" $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/($env.GODOT_SRC_DXC_DATE).zip"
-    nudep decompress $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/($env.GODOT_SRC_DXC_DATE).zip" $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/dxc"
+    gsrc download dxc
 }
 
 # Build the windows template
@@ -917,6 +914,14 @@ export def "gsrc export linux" [
     gsrc export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
 }
 
+export def "gsrc download dxc" [] {
+    use ../nudep/core.nu *
+
+    let dxc_dir = $"($env.GODOT_SRC_DIR)/gitignore/dxc"
+    nudep http file $"https://github.com/microsoft/DirectXShaderCompiler/releases/download/($env.GODOT_SRC_DXC_VERSION)/($env.GODOT_SRC_DXC_DATE).zip" $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/($env.GODOT_SRC_DXC_DATE).zip"
+    nudep decompress $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/($env.GODOT_SRC_DXC_DATE).zip" $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/dxc"
+}
+
 export def "gsrc export windows" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
@@ -927,6 +932,8 @@ export def "gsrc export windows" [
     use ../nudep/core.nu *
     $env.GODOT_SRC_GODOT_PLATFORM = "windows"
 
+    gsrc download dxc
+
     if not $skip_template {
         gsrc godot build template windows --release-mode=$release_mode
     }
@@ -935,7 +942,7 @@ export def "gsrc export windows" [
     let out_dir = ($"($out_file)/.." | path expand)
     let dxil_path = $"($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc/bin/x64/dxil.dll"
     mkdir $out_dir
-    cp $dxil_path $out_dir
+    cp -f $dxil_path $out_dir
 
     if $env.GODOT_SRC_WINDOWS_ABI == "msvc" {
         # Microsoft talks about how they intend for vc_redist to be used here: 
