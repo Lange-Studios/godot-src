@@ -917,9 +917,12 @@ export def "gsrc export linux" [
 export def "gsrc download dxc" [] {
     use ../nudep/core.nu *
 
+    let config = gsrc godot config
+
     let dxc_dir = $"($env.GODOT_SRC_DIR)/gitignore/dxc"
     nudep http file $"https://github.com/microsoft/DirectXShaderCompiler/releases/download/($env.GODOT_SRC_DXC_VERSION)/($env.GODOT_SRC_DXC_DATE).zip" $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/($env.GODOT_SRC_DXC_DATE).zip"
     nudep decompress $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/($env.GODOT_SRC_DXC_DATE).zip" $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/dxc"
+    cp -f $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/dxc/bin/x64/dxil.dll" $"($config.godot_bin_dir)/dxil.dll"
 }
 
 export def "gsrc export windows" [
