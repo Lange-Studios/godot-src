@@ -642,6 +642,7 @@ export def "gsrc godot build" [
     --target: string # specify a target such as template
     --arch: string,
     --extra-scons-args: list<string>
+    --if-not-exist
 ] {
     use utils.nu godot-platform
     use ../utils/utils.nu validate_arg
@@ -650,6 +651,10 @@ export def "gsrc godot build" [
     validate_arg $release_mode "--release-mode" ((metadata $release_mode).span) "release" "debug"
 
     let config = gsrc godot config;
+
+    if $if_not_exist and ($config.godot_bin | path exists) {
+        return
+    }
 
     let skip_nir = ($env.GODOT_SRC_SKIP_NIR? | default "false")
 
