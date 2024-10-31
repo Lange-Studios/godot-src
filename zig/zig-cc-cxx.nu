@@ -14,6 +14,10 @@ def filter [args: list<string>] -> list<string> {
     for arg in $args {
         let arg = if $is_arg_val {
             $arg
+        } else if $arg == "-L" {
+            # Don't filter out search directories
+            $is_arg_val = true
+            $arg
         } else if $arg == "-o" {
             # zig requires -o to be the first arg / val combination after cc / cxx when linking
             $filtered_args = ($filtered_args | insert 1 $arg)
