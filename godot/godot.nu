@@ -637,6 +637,7 @@ export def "gsrc godot build" [
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-cs-glue # Skips generating or rebuilding the csharp glue
     --skip-lto # skips lto even in a release build
+    --lto-mode: string = "thin" # The kind of lto to use: [auto, full, thin]
     --platform: string # the platform to build for
     --compiledb, # Whether or not to compile the databse for ides
     --target: string # specify a target such as template
@@ -692,7 +693,7 @@ export def "gsrc godot build" [
 
     # LTO doesn't work on windows for some reason.  Causes a lot of undefined symbols errors.
     if not $skip_lto and $release_mode == "release" and $platform != "windows" {
-        $scons_args = ($scons_args | append "lto=full")
+        $scons_args = ($scons_args | append $"lto=($lto_mode)")
     }
 
     if ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX? | default "") != "" {
