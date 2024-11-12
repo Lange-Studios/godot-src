@@ -571,11 +571,30 @@ export def "gsrc godot build template android" [
     use ../utils/utils.nu
     use ../nudep/jdk.nu
     use ../nudep/android-cli.nu
+    use ../nudep/android-agdk.nu
 
     jdk download
     android-cli download
-
+    android-agdk download
+    let android_gdk_config = android-agdk config
     let godot_config = gsrc godot config
+
+    mkdir -v $"($godot_config.godot_dir)/thirdparty/swappy-frame-pacing/arm64-v8a"
+    mkdir -v $"($godot_config.godot_dir)/thirdparty/swappy-frame-pacing/armeabi-v7a"
+    mkdir -v $"($godot_config.godot_dir)/thirdparty/swappy-frame-pacing/x86_64"
+    mkdir -v $"($godot_config.godot_dir)/thirdparty/swappy-frame-pacing/x86"
+    (cp -fv $"($android_gdk_config.version_dir)/libs/arm64-v8a_cpp_static_Release/libswappy_static.a"
+        $"($godot_config.godot_dir)/thirdparty/swappy-frame-pacing/arm64-v8a/libswappy_static.a"
+    )
+    (cp -fv $"($android_gdk_config.version_dir)/libs/armeabi-v7a_cpp_static_Release/libswappy_static.a"
+        $"($godot_config.godot_dir)/thirdparty/swappy-frame-pacing/armeabi-v7a/libswappy_static.a"
+    )
+    (cp -fv $"($android_gdk_config.version_dir)/libs/x86_64_cpp_static_Release/libswappy_static.a"
+        $"($godot_config.godot_dir)/thirdparty/swappy-frame-pacing/x86_64/libswappy_static.a"
+    )
+    (cp -fv $"($android_gdk_config.version_dir)/libs/x86_cpp_static_Release/libswappy_static.a"
+        $"($godot_config.godot_dir)/thirdparty/swappy-frame-pacing/x86/libswappy_static.a"
+    )
 
     # Gradle doesn't seem to rebuild when godot source changes.  So we need to force it.
     # Fortunately this part of the build seems to be rather quick.
