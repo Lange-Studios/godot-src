@@ -753,7 +753,8 @@ export def "gsrc godot build" [
                 # See: https://github.com/ziglang/zig/blob/master/src%2Flibcxx.zig
                 "use_static_cpp=false",
                 "use_windres=false",
-                "validate_target_platform=false"
+                "validate_target_platform=false",
+                "manual_build_res_file=true"
             ])
         },
         "linux" => {
