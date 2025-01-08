@@ -16,4 +16,5 @@ scons = "==4.7.0"
 cmake = "*"
 ninja = "*"
 mako = "*"
-ziglang = "==0.13.0"
+# Uncomment and use pixi when zig 0.14.0 releases
+# ziglang = "==0.14.0"

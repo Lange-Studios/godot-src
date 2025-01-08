@@ -5,9 +5,16 @@ $env.PIXI_VERSION = ($env.PIXI_VERSION? | default "v0.26.1")
 $env.PIXI_HOME = ($env.PIXI_HOME? | default $"($env.GODOT_SRC_DIR)/gitignore/pixi")
 $env.PATH = ($env.PATH | prepend $"($env.GODOT_SRC_DIR)/.pixi/envs/default")
 $env.PATH = ($env.PATH | prepend $"($env.GODOT_SRC_DIR)/.pixi/envs/default/bin")
+# Uncomment this when going back to pixi
+# $env.PATH = ($env.PATH | prepend (
+#     $env.GODOT_SRC_ZIG_BIN_DIR? | (
+#         default (gsrc pixi run --manifest-path $"($env.GODOT_SRC_DIR)/pixi.toml" python -m ziglang env | from json).zig_exe | path dirname
+#     )
+# ))
+# Comment the below zig path setting when going back to pixi
 $env.PATH = ($env.PATH | prepend (
     $env.GODOT_SRC_ZIG_BIN_DIR? | (
-        default (gsrc pixi run --manifest-path $"($env.GODOT_SRC_DIR)/pixi.toml" python -m ziglang env | from json).zig_exe | path dirname
+        default (gsrc zig run env | from json).zig_exe | path dirname
     )
 ))
 $env.PIXI_HOME = ($env.PIXI_HOME? | default $"($env.GODOT_SRC_DIR)/gitignore/python-wrapper")
