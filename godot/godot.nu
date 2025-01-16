@@ -711,7 +711,7 @@ export def "gsrc godot build" [
     }
 
     # LTO doesn't work on windows for some reason.  Causes a lot of undefined symbols errors.
-    if not $skip_lto and $release_mode == "release" and $platform != "windows" {
+    if not $skip_lto and $release_mode == "release" {
         $scons_args = ($scons_args | append $"lto=($lto_mode)")
     }
 
