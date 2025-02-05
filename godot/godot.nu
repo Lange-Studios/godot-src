@@ -419,6 +419,7 @@ export def "gsrc godot build godot-nir" [] {
         "platform_tools=false"
         "import_env_vars=ZIG_GLOBAL_CACHE_DIR,ZIG_LOCAL_CACHE_DIR"
         "use_mingw=true"
+        "-j" (sys cpu | length)
         ...$extra_args
         ...(gsrc zig cxx scons-vars $zig_target))
 
@@ -697,6 +698,7 @@ export def "gsrc godot build" [
         $"compiledb=($compiledb)"
         $"use_llvm=($env.GODOT_SRC_GODOT_USE_LLVM)"
         "verbose=true"
+        "-j" (sys cpu | length)
     ] | append $extra_scons_args | append $env.GODOT_SRC_EXTRA_SCONS_ARGS?)
 
     if $nu.os-info.name == "windows" {
