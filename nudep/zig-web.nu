@@ -1,7 +1,7 @@
 use core.nu *
 use platform_constants.nu *
 
-const GODOT_SRC_ZIG_VERSION_DEFAULT = "zig-0.14.0-dev.3086+b3c63e5de"
+const GODOT_SRC_ZIG_VERSION_DEFAULT = "0.14.0-dev.3086+b3c63e5de"
 
 export def config [] {
     let zig_dir = ($"($env.GODOT_SRC_DIR)/($DEP_DIR)/zig" | str replace --all "\\" "/")
