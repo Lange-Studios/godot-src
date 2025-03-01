@@ -23,7 +23,7 @@ $env.PATH = match ($nu.os-info.name == "windows") {
     true => {
         mkdir $"($env.GODOT_SRC_DIR)/gitignore/python-link"
         rm -f $"($env.GODOT_SRC_DIR)\\gitignore\\python-link\\python3.exe"
-        mklink $"($env.GODOT_SRC_DIR)\\gitignore\\python-link\\python3.exe" $"($env.GODOT_SRC_DIR)\\.pixi\\envs\\default\\python.exe" | ignore
+        mklink $"($env.GODOT_SRC_DIR)\\gitignore\\python-link\\python3.exe" $"($env.GODOT_SRC_DIR)\\.pixi\\envs\\default\\python.exe" | complete
         ($env.PATH | prepend $"($env.GODOT_SRC_DIR)/gitignore/python-link")
     },
     false => $env.PATH
