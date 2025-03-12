@@ -1,0 +1,20 @@
+[project]
+name = "godot-src"
+version = "0.1.0"
+description = "Working with godot from source made easy!"
+authors = ["Lange Studios"]
+channels = ["conda-forge"]
+platforms = ["linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64"]
+
+[dependencies]
+nushell = "0.95.*"
+python = "3.12.*"
+
+[pypi-dependencies]
+pip = "*"
+scons = "==4.7.0"
+cmake = "*"
+ninja = "*"
+mako = "*"
+# Uncomment and use pixi when zig 0.14.0 releases
+# ziglang = "==0.14.0"

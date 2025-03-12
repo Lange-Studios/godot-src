@@ -18,3 +18,7 @@ zig-cache/
 zig-out/
 
 debug.keystore
+
+# pixi environments
+.pixi
+*.egg-info

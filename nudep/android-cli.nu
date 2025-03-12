@@ -36,6 +36,7 @@ export def config [] {
         cli_root_dir: $cli_root_dir,
         cli_version_dir: $cli_version_dir,
         cli_zip: $cli_zip,
+        ndk_version: $ndk_version,
         ndk_dir: $"($cli_version_dir)/ndk/($ndk_version)",
         # TODO: Get this version and ndk version from godot/platform/android/java/app/config.gradle
         build_tools_version: $build_tools_version,

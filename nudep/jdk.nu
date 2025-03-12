@@ -39,5 +39,5 @@ export def --wrapped run [
     ...rest
 ] {
     download
-    run-external $"(main jdk config | get "bin_dir")/($command)" ...$rest
+    run-external $"(config | get "bin_dir")/($command)" ...$rest
 }
