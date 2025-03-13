@@ -43,6 +43,21 @@ export def --wrapped run [
     
     nudep http file $"https://ziglang.org/builds/($zip_file)" $zip_path
     nudep decompress $zip_path $zig_version_dir
+
+    let patch_files = [
+        "lib/libc/glibc/sysdeps/nptl/bits/thread-shared-types.h"
+        "lib/libc/glibc/sysdeps/nptl/pthread.h"
+        "lib/libc/include/generic-glibc/bits/thread-shared-types.h"
+        "lib/libc/include/generic-glibc/pthread.h"
+    ]
+
+    $patch_files | par-each { |patch_file|
+        let patch_url = $"https://raw.githubusercontent.com/Lange-Studios/zig/0133746045cca5bec00fe6c98e90ac939ff6faa9/($patch_file)"
+        let patch_file = $"(bin_dir)/($patch_file)"
+        print $"downloading patch for '($patch_file)' from '($patch_url)'"
+        http get $patch_url | save -f $patch_file
+    }
+
     return (run-external $zig_bin ...$rest)
 }
 
