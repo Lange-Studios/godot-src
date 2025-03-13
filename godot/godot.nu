@@ -557,7 +557,7 @@ export def "gsrc android setup-cli" [] {
             $"--sdk_root=($env.ANDROID_HOME)"
             "platform-tools"
             $"build-tools;($android_config.build_tools_version)"
-            "platforms;android-29"
+            "platforms;android-34"
             "cmdline-tools;latest"
             "cmake;3.10.2.4988404"
             $"ndk;($android_config.ndk_version)")
