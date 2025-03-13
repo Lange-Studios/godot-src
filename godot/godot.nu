@@ -5,6 +5,7 @@ use utils.nu
 $env.GODOT_CAN_BUILD_WINDOWS = "true"
 $env.GODOT_SRC_DOTNET_ENABLED = ($env.GODOT_SRC_DOTNET_ENABLED? | default false)
 $env.GODOT_SRC_DOTNET_USE_SYSTEM = ($env.GODOT_SRC_DOTNET_USE_SYSTEM? | default false)
+$env.GODOT_SRC_GODOT_EXTRA_SUFFIX = ($env.GODOT_SRC_GODOT_EXTRA_SUFFIX? | default "")
 $env.GODOT_SRC_PRECISION = ($env.GODOT_SRC_PRECISION? | default "single")
 $env.GODOT_SRC_DXC_VERSION = ($env.GODOT_SRC_DXC_VERSION? | default "v1.8.2403.1")
 $env.GODOT_SRC_DXC_DATE = ($env.GODOT_SRC_DXC_DATE? | default "dxc_2024_03_22")
@@ -122,7 +123,7 @@ export def --wrapped "gsrc godot run" [
 
     if $config.auto_install_godot {
         if not ($"($config.godot_dir)/LICENSE.txt" | path exists) {
-            git clone --depth 1 https://github.com/godotengine/godot.git $config.godot_dir
+            git clone --depth 1 --branch 4.4-stable-ls https://github.com/Lange-Studios/godot.git $config.godot_dir
         }
     }
 
@@ -164,7 +165,7 @@ export def "gsrc godot clean editor" [] {
     let config = gsrc godot config
 
     rm $config.godot_bin
-    mkdir $"($config.godot_dir)/submodules/godot/bin/GodotSharp/Tools/nupkgs"
+    mkdir $"($config.godot_dir)/GodotSharp/Tools/nupkgs"
     let platform = utils godot-platform $nu.os-info.name
     cd $config.godot_dir
     (run-external "scons" 
