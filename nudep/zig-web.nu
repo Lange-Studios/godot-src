@@ -41,7 +41,7 @@ export def --wrapped run [
     let zip_file = $"zig-($nu.os-info.name)-($nu.os-info.arch)-($version).($file_extension)"
     let zip_path = $"($zig_dir)/($zip_file)"
     
-    nudep http file $"https://ziglang.org/builds/($zip_file)" $zip_path
+    nudep http file $"https://ziglang.org/download/($version)/($zip_file)" $zip_path
     nudep decompress $zip_path $zig_version_dir
 
     let patch_files = [
