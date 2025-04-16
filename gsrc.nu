@@ -1,7 +1,7 @@
 # Append the current running new instance to the path
 $env.GODOT_SRC_DIR = ($env.GODOT_SRC_DIR? | default (($env.GSRC_SCRIPT? | default $"($env.PWD)/gsrc.nu") | path expand | path dirname))
 $env.PIXI_NO_PATH_UPDATE = "true"
-$env.PIXI_VERSION = ($env.PIXI_VERSION? | default "v0.26.1")
+$env.PIXI_VERSION = ($env.PIXI_VERSION? | default "v0.45.0")
 $env.PIXI_HOME = ($env.PIXI_HOME? | default $"($env.GODOT_SRC_DIR)/gitignore/pixi")
 $env.PATH = ($env.PATH | prepend $"($env.GODOT_SRC_DIR)/.pixi/envs/default")
 $env.PATH = ($env.PATH | prepend $"($env.GODOT_SRC_DIR)/.pixi/envs/default/bin")
