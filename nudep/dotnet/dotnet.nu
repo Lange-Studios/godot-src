@@ -62,7 +62,7 @@ export def download [] {
         "windows" => {
             command: "powershell", 
             args: [
-                $"($env.GODOT_SRC_DIR)/nudep/dotnet/dotnet-install.ps1" "-NoPath" "-Channel" $channel "-InstallDir" $config.dir
+                $"Set-ExecutionPolicy -scope Process Unrestricted; ($env.GODOT_SRC_DIR)/nudep/dotnet/dotnet-install.ps1" "-NoPath" "-Channel" $channel "-InstallDir" $config.dir
             ] 
         },
         "linux" | "macos" => {
