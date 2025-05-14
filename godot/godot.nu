@@ -619,7 +619,7 @@ export def "gsrc godot build template android" [
     $archs | enumerate | each { |arch|
         # Always generate the apk last
         let extra_args = match ($arch.index == (($archs | length) - 1)) {
-            true => [ "generate_apk=yes" ],
+            true => [ "generate_android_binaries=yes" ],
             false => []
         }
 
