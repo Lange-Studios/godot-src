@@ -924,7 +924,7 @@ export def --wrapped "gsrc export" [
     rm -rf $out_dir
     mkdir $out_dir
     
-    gsrc godot run --headless --path $project $"--export-($release_mode)" $preset ...$rest $out_file
+    gsrc godot run --path $project $"--export-($release_mode)" $preset ...$rest $out_file
     print $"Successfully exported to: ($out_file)"
 }
 
