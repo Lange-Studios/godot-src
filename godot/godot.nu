@@ -928,19 +928,20 @@ export def --wrapped "gsrc export" [
     print $"Successfully exported to: ($out_file)"
 }
 
-export def "gsrc export linux" [
+export def --wrapped "gsrc export linux" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
     --preset: string = "Linux",
     --out-file: string
+    ...rest
 ] {
     if not $skip_template {
         gsrc godot build template linux --release-mode=$release_mode
     }
 
     $env.GODOT_SRC_GODOT_PLATFORM = "linuxbsd"
-    gsrc export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
+    gsrc export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset ...$rest
 }
 
 export def "gsrc download dxc" [] {
@@ -954,12 +955,13 @@ export def "gsrc download dxc" [] {
     cp -f $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/dxc/bin/x64/dxil.dll" $"($config.godot_bin_dir)/dxil.dll"
 }
 
-export def "gsrc export windows" [
+export def --wrapped "gsrc export windows" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
     --preset: string = "Windows Desktop"
     --out-file: string
+    ...rest
 ] {
     use ../nudep/core.nu *
     $env.GODOT_SRC_GODOT_PLATFORM = "windows"
@@ -970,7 +972,7 @@ export def "gsrc export windows" [
         gsrc godot build template windows --release-mode=$release_mode
     }
 
-    gsrc export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
+    gsrc export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset ...$rest
     let out_dir = ($"($out_file)/.." | path expand)
     let dxil_path = $"($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc/bin/x64/dxil.dll"
     mkdir $out_dir
