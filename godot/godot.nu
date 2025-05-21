@@ -748,7 +748,6 @@ export def "gsrc godot build" [
             }
             $scons_args = ($scons_args | append (gsrc zig cxx scons-vars $zig_target) | append [
                 "d3d12=yes"
-                "vulkan=no"
                 $"dxc_path=($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc"
                 $"mesa_libs=($env.GODOT_SRC_GODOT_NIR_DIR)"
                 "platform_tools=false"
@@ -772,9 +771,7 @@ export def "gsrc godot build" [
             ])
         },
         "android" => {
-            $scons_args = ($scons_args | append [
-                "vulkan=yes"
-            ])
+            # TODO: Add support for building with zig
         },
         "macos" => {
             # TODO: Add support for building with zig
