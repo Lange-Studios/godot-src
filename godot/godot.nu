@@ -699,6 +699,7 @@ export def "gsrc godot build" [
         $"compiledb=($compiledb)"
         $"use_llvm=($env.GODOT_SRC_GODOT_USE_LLVM)"
         "verbose=true"
+        "accesskit=false" # TODO: Figure out why access kit is failing when targeting windows
         "-j" (sys cpu | length)
     ] | append $extra_scons_args | append $env.GODOT_SRC_EXTRA_SCONS_ARGS?)
 
