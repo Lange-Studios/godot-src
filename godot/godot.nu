@@ -678,6 +678,11 @@ export def "gsrc godot build" [
         return
     }
 
+    # TODO: Only do this if we are building macos with vulkan support
+    if $platform == "macos" {
+        run-external $"($config.godot_dir)/misc/scripts/install_vulkan_sdk_macos.sh"
+    }
+
     let skip_nir = ($env.GODOT_SRC_SKIP_NIR? | default "false")
 
     mut zig_target = ""
