@@ -28,7 +28,7 @@ export def --wrapped run [
     $env.ZIG_GLOBAL_CACHE_DIR = $config.local_cache_dir
     $env.ZIG_LOCAL_CACHE_DIR = $config.global_cache_dir
 
-    if ($zig_bin | path exists) {
+    if ($zig_bin | path exists) or ($"($zig_bin).exe" | path exists) {
         return (run-external $zig_bin ...$rest)
     }
 
