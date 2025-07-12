@@ -1212,9 +1212,14 @@ export def "gsrc zig cxx env-vars-wrapped" [target: string] {
 export def "gsrc android cxx env-vars" [target: string] {
     use ../nudep/android-cli.nu
 
+    let os_arch = (match $nu.os-info.name {
+        "macos" => "darwin-x86_64", 
+        _ => $"($nu.os-info.name)-($nu.os-info.arch)"
+    })
+
     let android_config = android-cli config
     let llvm_dir = (
-        $"($android_config.ndk_dir)/toolchains/llvm/prebuilt/($nu.os-info.name)-($nu.os-info.arch)/bin"
+        $"($android_config.ndk_dir)/toolchains/llvm/prebuilt/($os_arch)/bin"
         | str replace --all "\\" "/"
     )
 
