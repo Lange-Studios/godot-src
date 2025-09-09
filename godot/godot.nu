@@ -114,6 +114,9 @@ export def --wrapped "gsrc godot run" [
     use ../nudep/platform_constants.nu *
     use ../nudep
 
+    # Use the gsrc installed dotnet instead of the system dotnet
+    load-env (nudep dotnet godot-dotnet-env)
+
     mut rest = $rest
 
     # Update the path with dotnet if we are using it

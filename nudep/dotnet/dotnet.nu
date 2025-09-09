@@ -1,5 +1,14 @@
 use ../core.nu *
 
+# https://github.com/godotengine/godot/blob/2dd26a027a99633231184616d4dd287bbdd1c0a3/modules/mono/editor/hostfxr_resolver.cpp#L142C1-L149C3
+const arch_os_dotnet_map = {
+	arm32: "arm"
+	arm64: "arm64"
+	rv64: "riscv64"
+	x86_64: "x64"
+	x86_32: "x86"
+}
+
 export def config [] {
     let dir = $"($env.GODOT_SRC_DIR)/($DEP_DIR)/dotnet"
 
@@ -105,5 +114,13 @@ export def init [] -> string {
         download
     } else {
         print "using system installed dotnet"
+    }
+}
+
+export def godot-dotnet-env [] {
+    let arch = $arch_os_dotnet_map | get ($nu.os-info.arch) | str upcase
+
+    return {
+        $"DOTNET_ROOT_($arch)": (config | get dir)
     }
 }
