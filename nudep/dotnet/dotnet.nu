@@ -4,6 +4,7 @@ use ../core.nu *
 const arch_os_dotnet_map = {
 	arm32: "arm"
 	arm64: "arm64"
+    aarch64: "arm64"
 	rv64: "riscv64"
 	x86_64: "x64"
 	x86_32: "x86"
