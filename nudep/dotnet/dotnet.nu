@@ -33,10 +33,10 @@ export def download [] {
                 open $env.GODOT_SRC_CS_PROJ |
                     from xml |
                     get content |
-                    filter { |el| $el.tag == "PropertyGroup" } |
+                    where { |el| $el.tag == "PropertyGroup" } |
                     first |
                     get content |
-                    filter { |el|
+                    where { |el|
                         $el.tag == "TargetFramework" and ($el.attributes | any { |el|
                             $el.Condition? | default "" | str contains $env.GODOT_SRC_GODOT_PLATFORM
                         })
@@ -48,10 +48,10 @@ export def download [] {
                 open $env.GODOT_SRC_CS_PROJ |
                     from xml |
                     get content |
-                    filter { |el| $el.tag == "PropertyGroup" } |
+                    where { |el| $el.tag == "PropertyGroup" } |
                     first |
                     get content |
-                    filter { |el|
+                    where { |el|
                         $el.tag == "TargetFramework" and ($el.attributes | any { |el|
                             $el.Condition? | $in == null
                         })
@@ -99,7 +99,7 @@ export def --wrapped run [channel: string, ...rest] {
 }
 
 export def env-path [] {
-    if $env.GODOT_SRC_DOTNET_ENABLED and not $env.GODOT_SRC_DOTNET_USE_SYSTEM {
+    if ($env.GODOT_SRC_DOTNET_ENABLED | into bool) and not ($env.GODOT_SRC_DOTNET_USE_SYSTEM | into bool) {
         let dotnet_config = config
         return ($env.PATH | prepend $dotnet_config.dir)
     } else {
@@ -110,8 +110,8 @@ export def env-path [] {
 # Downloads dotnet and returns a string that can be assigned to the path environment variable
 # if we are setup to use dotnet via ``$env.GODOT_SRC_DOTNET_ENABLED``.  Otherwise, it returns
 # ``$env.PATH``
-export def init [] -> string {
-    if $env.GODOT_SRC_DOTNET_ENABLED and not $env.GODOT_SRC_DOTNET_USE_SYSTEM {
+export def init []: nothing -> string {
+    if ($env.GODOT_SRC_DOTNET_ENABLED | into bool) and not ($env.GODOT_SRC_DOTNET_USE_SYSTEM | into bool) {
         download
     } else {
         print "using system installed dotnet"

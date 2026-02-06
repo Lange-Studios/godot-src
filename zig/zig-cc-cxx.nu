@@ -4,7 +4,7 @@ export def --wrapped "main" [command_to_run ...rest] {
     run-external $command_to_run ...(filter $rest)
 }
 
-def filter [args: list<string>] -> list<string> {
+def filter [args: list<string>]: nothing -> list<string> {
     mut filtered_args: list<string> = []
 
     mut is_arg_val = false

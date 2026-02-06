@@ -71,7 +71,7 @@ export def "gsrc godot config" [
         _ => $arch,
     }))
 
-    if $env.GODOT_SRC_GODOT_USE_LLVM and ($godot_platform == "windows" or $godot_platform == "linuxbsd") {
+    if ($env.GODOT_SRC_GODOT_USE_LLVM | into bool) and ($godot_platform == "windows" or $godot_platform == "linuxbsd") {
         $godot_bin_name = ($godot_bin_name | append "llvm")
     }
 
@@ -79,7 +79,7 @@ export def "gsrc godot config" [
         $godot_bin_name = ($godot_bin_name | append $env.GODOT_SRC_GODOT_EXTRA_SUFFIX)
     }
 
-    if $env.GODOT_SRC_DOTNET_ENABLED and $godot_platform != "ios" {
+    if ($env.GODOT_SRC_DOTNET_ENABLED | into bool) and $godot_platform != "ios" {
         $godot_bin_name = ($godot_bin_name | append "mono")
     }
 
@@ -134,7 +134,7 @@ export def --wrapped "gsrc godot run" [
         gsrc godot build editor
     }
 
-    if $env.GODOT_SRC_DOTNET_ENABLED {
+    if ($env.GODOT_SRC_DOTNET_ENABLED | into bool) {
         gsrc godot build dotnet-glue
     }
     
@@ -847,7 +847,7 @@ export def "gsrc godot build" [
 
     run-external "scons" ...$scons_args
 
-    if $env.GODOT_SRC_DOTNET_ENABLED and not $skip_cs_glue {
+    if ($env.GODOT_SRC_DOTNET_ENABLED | into bool) and not $skip_cs_glue {
         gsrc godot build dotnet-glue --force --platform $platform
     }
 }
@@ -1158,7 +1158,7 @@ export def "gsrc vulkan compile validation android" [
 }
 
 # Returns vars commonly accepted by scons. See more here under "User Guide": https://scons.org/documentation.html
-export def "gsrc zig cxx scons-vars" [target: string] -> string[] {
+export def "gsrc zig cxx scons-vars" [target: string]: nothing -> list<string> {
     use ../nudep
 
     let cxx_env_vars = gsrc zig cxx env-vars-wrapped $target
@@ -1245,7 +1245,7 @@ export def "gsrc android cxx env-vars" [target: string] {
     }
 }
 
-export def --wrapped "gsrc wrap-script" [script_name: string, ...rest] -> string {
+export def --wrapped "gsrc wrap-script" [script_name: string, ...rest]: nothing -> string {
     let script_dir = $"($env.GODOT_SRC_DIR)/gitignore/wrapper-scripts"
     mkdir $script_dir
 

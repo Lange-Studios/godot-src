@@ -67,7 +67,7 @@ export def "git list ignored" [...dirs: string] {
             str trim |
             str substring ($in | str index-of "Ignored files:").. |
             split row "\n" |
-            filter { |$el| $el | str starts-with "\t" } |
+            where { |$el| $el | str starts-with "\t" } |
             str trim) | 
         str trim | 
         each { |$el| $env.PWD | path join $el }

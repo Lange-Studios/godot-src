@@ -15,7 +15,7 @@ export def config [] {
     # Read the lines of android/detect.py
     let android_detect_lines = open $"($env.GODOT_SRC_GODOT_DIR)/platform/android/detect.py" | 
         split row "\n" | 
-        filter { |i| ($i | str trim) != "" }
+        where { |i| ($i | str trim) != "" }
     # Find the line where "def get_ndk_version():" is so we can get the return value on the next line
     let get_ndk_index = $android_detect_lines | 
         enumerate | 

@@ -53,7 +53,7 @@ export def env-path [] {
 }
 
 # Downloads pypy and returns a string that can be assigned to the path environment variable
-export def init [] -> string {
+export def init []: nothing -> string {
     download
 
     let config = config
