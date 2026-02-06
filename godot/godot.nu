@@ -114,6 +114,9 @@ export def --wrapped "gsrc godot run" [
     use ../nudep/platform_constants.nu *
     use ../nudep
 
+    # Use the gsrc installed dotnet instead of the system dotnet
+    load-env (nudep dotnet godot-dotnet-env)
+
     mut rest = $rest
 
     # Update the path with dotnet if we are using it
@@ -619,7 +622,7 @@ export def "gsrc godot build template android" [
     $archs | enumerate | each { |arch|
         # Always generate the apk last
         let extra_args = match ($arch.index == (($archs | length) - 1)) {
-            true => [ "generate_apk=yes" ],
+            true => [ "generate_android_binaries=yes" ],
             false => []
         }
 
@@ -678,6 +681,11 @@ export def "gsrc godot build" [
         return
     }
 
+    # TODO: Only do this if we are building macos with vulkan support
+    if $platform == "macos" {
+        run-external $"($config.godot_dir)/misc/scripts/install_vulkan_sdk_macos.sh"
+    }
+
     let skip_nir = ($env.GODOT_SRC_SKIP_NIR? | default "false")
 
     mut zig_target = ""
@@ -699,6 +707,7 @@ export def "gsrc godot build" [
         $"compiledb=($compiledb)"
         $"use_llvm=($env.GODOT_SRC_GODOT_USE_LLVM)"
         "verbose=true"
+        "accesskit=false" # TODO: Figure out why access kit is failing when targeting windows
         "-j" (sys cpu | length)
     ] | append $extra_scons_args | append $env.GODOT_SRC_EXTRA_SCONS_ARGS?)
 
@@ -748,7 +757,6 @@ export def "gsrc godot build" [
             }
             $scons_args = ($scons_args | append (gsrc zig cxx scons-vars $zig_target) | append [
                 "d3d12=yes"
-                "vulkan=no"
                 $"dxc_path=($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc"
                 $"mesa_libs=($env.GODOT_SRC_GODOT_NIR_DIR)"
                 "platform_tools=false"
@@ -772,9 +780,7 @@ export def "gsrc godot build" [
             ])
         },
         "android" => {
-            $scons_args = ($scons_args | append [
-                "vulkan=yes"
-            ])
+            # TODO: Add support for building with zig
         },
         "macos" => {
             # TODO: Add support for building with zig
@@ -924,23 +930,24 @@ export def --wrapped "gsrc export" [
     rm -rf $out_dir
     mkdir $out_dir
     
-    gsrc godot run --headless --path $project $"--export-($release_mode)" $preset ...$rest $out_file
+    gsrc godot run --path $project $"--export-($release_mode)" $preset ...$rest $out_file
     print $"Successfully exported to: ($out_file)"
 }
 
-export def "gsrc export linux" [
+export def --wrapped "gsrc export linux" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
     --preset: string = "Linux",
     --out-file: string
+    ...rest
 ] {
     if not $skip_template {
         gsrc godot build template linux --release-mode=$release_mode
     }
 
     $env.GODOT_SRC_GODOT_PLATFORM = "linuxbsd"
-    gsrc export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
+    gsrc export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset ...$rest
 }
 
 export def "gsrc download dxc" [] {
@@ -954,12 +961,13 @@ export def "gsrc download dxc" [] {
     cp -f $"($dxc_dir)/($env.GODOT_SRC_DXC_VERSION)/dxc/bin/x64/dxil.dll" $"($config.godot_bin_dir)/dxil.dll"
 }
 
-export def "gsrc export windows" [
+export def --wrapped "gsrc export windows" [
     --project: string # Path to the folder with a project.godot file that will be exported
     --release-mode: string = "debug", # How to optimize the build. Options: 'release' | 'debug'
     --skip-template
     --preset: string = "Windows Desktop"
     --out-file: string
+    ...rest
 ] {
     use ../nudep/core.nu *
     $env.GODOT_SRC_GODOT_PLATFORM = "windows"
@@ -970,7 +978,7 @@ export def "gsrc export windows" [
         gsrc godot build template windows --release-mode=$release_mode
     }
 
-    gsrc export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset
+    gsrc export --project=$project --release-mode=$release_mode --out-file=$out_file --preset=$preset ...$rest
     let out_dir = ($"($out_file)/.." | path expand)
     let dxil_path = $"($env.GODOT_SRC_DIR)/gitignore/dxc/($env.GODOT_SRC_DXC_VERSION)/dxc/bin/x64/dxil.dll"
     mkdir $out_dir
@@ -1207,9 +1215,14 @@ export def "gsrc zig cxx env-vars-wrapped" [target: string] {
 export def "gsrc android cxx env-vars" [target: string] {
     use ../nudep/android-cli.nu
 
+    let os_arch = (match $nu.os-info.name {
+        "macos" => "darwin-x86_64", 
+        _ => $"($nu.os-info.name)-($nu.os-info.arch)"
+    })
+
     let android_config = android-cli config
     let llvm_dir = (
-        $"($android_config.ndk_dir)/toolchains/llvm/prebuilt/($nu.os-info.name)-($nu.os-info.arch)/bin"
+        $"($android_config.ndk_dir)/toolchains/llvm/prebuilt/($os_arch)/bin"
         | str replace --all "\\" "/"
     )
 
