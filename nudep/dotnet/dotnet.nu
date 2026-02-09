@@ -37,9 +37,10 @@ export def download [] {
                     first |
                     get content |
                     where { |el|
-                        $el.tag == "TargetFramework" and ($el.attributes | any { |el|
-                            $el.Condition? | default "" | str contains $env.GODOT_SRC_GODOT_PLATFORM
-                        })
+                        $el.tag == "TargetFramework" and ($el.attributes.Condition? 
+                            | default "" 
+                            | str contains $env.GODOT_SRC_GODOT_PLATFORM
+                        )
                     } |
                     get content.0.0.content |
                     str substring 3..
@@ -52,9 +53,7 @@ export def download [] {
                     first |
                     get content |
                     where { |el|
-                        $el.tag == "TargetFramework" and ($el.attributes | any { |el|
-                            $el.Condition? | $in == null
-                        })
+                        $el.tag == "TargetFramework" and ($el.attributes.Condition? | default "") == ""
                     } |
                     get content.0.0.content |
                     str substring 3..
