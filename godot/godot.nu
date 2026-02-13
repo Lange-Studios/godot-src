@@ -362,24 +362,24 @@ export def "gsrc godot build template ios app" [
     let multen_vk_config = (multen-vk-ios download)
     let godot_dir = $godot_config.godot_dir
     mkdir $"($godot_dir)/bin"
-    rm -rf $"($godot_dir)/bin/ios_xcode"
-    cp -r $"($godot_dir)/misc/dist/ios_xcode" $"($godot_dir)/bin/"
+    rm -rf $"($godot_dir)/bin/apple_embedded_xcode"
+    cp -r $"($godot_dir)/misc/dist/apple_embedded_xcode" $"($godot_dir)/bin/"
     
     if not $skip_debug {
         let config_debug = (gsrc godot build template ios --arch $arch --release-mode "debug" --skip-lto=$skip_lto)
-        mv $config_debug.godot_bin $"($godot_dir)/bin/ios_xcode/libgodot.ios.debug.xcframework/ios-arm64/libgodot.a"
+        mv $config_debug.godot_bin $"($godot_dir)/bin/apple_embedded_xcode/libgodot.ios.debug.xcframework/ios-arm64/libgodot.a"
     }
 
     if not $skip_release {
         let config_release = (gsrc godot build template ios --arch $arch --release-mode "release" --skip-lto=$skip_lto)
-        mv $config_release.godot_bin $"($godot_dir)/bin/ios_xcode/libgodot.ios.release.xcframework/ios-arm64/libgodot.a"
+        mv $config_release.godot_bin $"($godot_dir)/bin/apple_embedded_xcode/libgodot.ios.release.xcframework/ios-arm64/libgodot.a"
     }
 
-    cp -r $"($multen_vk_config.version_dir)/MoltenVK/MoltenVK/static/MoltenVK.xcframework" $"($godot_dir)/bin/ios_xcode/"
+    cp -r $"($multen_vk_config.version_dir)/MoltenVK/MoltenVK/static/MoltenVK.xcframework" $"($godot_dir)/bin/apple_embedded_xcode/"
 
     if not $skip_zip {
-        print $"zipping ($godot_dir)/bin/ios_xcode"
-        cd $"($godot_dir)/bin/ios_xcode"
+        print $"zipping ($godot_dir)/bin/apple_embedded_xcode"
+        cd $"($godot_dir)/bin/apple_embedded_xcode"
         run-external zip "-q" "-9" "-r" "ios.zip" .
         mv -f "ios.zip" "../"
     }
