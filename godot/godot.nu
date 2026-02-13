@@ -273,6 +273,7 @@ export def "gsrc godot build template macos app" [
 ] {
     let godot_config = gsrc godot config
     let godot_dir = $godot_config.godot_dir
+    mkdir $"($godot_dir)/bin"
     rm -rf $"($godot_dir)/bin/macos_template.app"
     cp -r $"($godot_dir)/misc/dist/macos_template.app" $"($godot_dir)/bin/"
     mkdir $"($godot_dir)/bin/macos_template.app/Contents/MacOS"
@@ -360,6 +361,7 @@ export def "gsrc godot build template ios app" [
     let godot_config = gsrc godot config
     let multen_vk_config = (multen-vk-ios download)
     let godot_dir = $godot_config.godot_dir
+    mkdir $"($godot_dir)/bin"
     rm -rf $"($godot_dir)/bin/ios_xcode"
     cp -r $"($godot_dir)/misc/dist/ios_xcode" $"($godot_dir)/bin/"
     
