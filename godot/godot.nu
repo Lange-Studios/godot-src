@@ -38,7 +38,15 @@ export def "gsrc godot config" [
     --release-mode: string = "debug",
     --arch: string,
     --platform: string
-]: nothing -> record<godot_dir: string, godot_bin_dir: string, godot_bin: string, godot_bin_name: string, auto_install_godot: bool, import_env_vars: bool, custom_modules: list<string>> {
+]: [nothing -> record<
+    godot_dir: string,
+    godot_bin_dir: string,
+    godot_bin: string,
+    godot_bin_name: string,
+    auto_install_godot: bool,
+    import_env_vars: bool,
+    custom_modules: list<string>,
+>] {
     use ../nudep/core.nu *
     use utils.nu
     let godot_dir = ($env.GODOT_SRC_GODOT_DIR? | default $"($env.GODOT_SRC_DIR)/($DEP_DIR)/godot");
