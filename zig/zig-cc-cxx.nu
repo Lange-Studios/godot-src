@@ -53,7 +53,8 @@ def filter [args: list<string>]: nothing -> list<string> {
             ($arg == "--allow-multiple-definition") or
             ($arg == "--no-relax") or
             ($arg == "--gc-sections") or
-            ($arg == "--gc-keep-exported")
+            ($arg == "--gc-keep-exported") or
+            ($arg == "-lmincore")
         ) {
             continue
         } else {
