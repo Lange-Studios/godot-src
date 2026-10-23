@@ -36,6 +36,10 @@ def filter [args: list<string>]: nothing -> list<string> {
             $arg
         } else if $arg == "-lgcc_eh" {
             "-lc++"
+        } else if $arg == "-lmincore" {
+            # zig's mingw has no mincore umbrella lib. Godot needs it for the WinRT string functions
+            # (WindowsCreateString etc.), so link the API set that provides them instead.
+            "-lapi-ms-win-core-winrt-string-l1-1-0"
         } else if ($arg | str starts-with "-Wl,") and ($arg | str ends-with "list.def") {
             $arg | str substring 4..
         } else if ($arg == "--whole-archive") {
@@ -53,8 +57,7 @@ def filter [args: list<string>]: nothing -> list<string> {
             ($arg == "--allow-multiple-definition") or
             ($arg == "--no-relax") or
             ($arg == "--gc-sections") or
-            ($arg == "--gc-keep-exported") or
-            ($arg == "-lmincore")
+            ($arg == "--gc-keep-exported")
         ) {
             continue
         } else {
