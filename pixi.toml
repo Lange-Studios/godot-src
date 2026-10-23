@@ -8,12 +8,12 @@ platforms = ["linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64"]
 
 [dependencies]
 nushell = "==0.110.0"
-python = "3.12.*"
+python = "3.14.*"
 pyyaml = ">=6.0.3,<7"
 
 [pypi-dependencies]
 pip = "*"
-scons = "==4.7.0"
+scons = "==4.11.1"
 cmake = "*"
 ninja = "*"
 mako = "*"
